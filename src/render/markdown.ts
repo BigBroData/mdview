@@ -3,6 +3,7 @@ import hljs from "highlight.js/lib/common";
 import type { MarkdownIt as Renderer } from "markdown-it";
 import MarkdownIt from "markdown-it";
 import { type AssetEnv, assetUrlsPlugin } from "./asset-urls.ts";
+import { tableColumnsPlugin } from "./table-columns.ts";
 import { taskListsPlugin } from "./task-lists.ts";
 
 /**
@@ -44,6 +45,10 @@ export function createRenderer(): Renderer {
   md.use(katexPlugin, { throwOnError: false, enableFencedBlocks: true });
   md.use(taskListsPlugin);
   md.use(assetUrlsPlugin);
+  md.use(tableColumnsPlugin);
+  // Wide tables scroll inside their own box instead of breaking the page.
+  md.renderer.rules.table_open = () => '<div class="table-wrap"><table>';
+  md.renderer.rules.table_close = () => "</table></div>";
   return md;
 }
 

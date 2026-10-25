@@ -1,24 +1,27 @@
-/** Command line parsing for `mdview <file> [--port N] [--open]`. Pure, testable. */
+/** Command line parsing for `mdview <file> [--port N] [--open] [--dev]`. Pure, testable. */
 export interface CliArgs {
   file: string;
   port: number;
   open: boolean;
+  dev: boolean;
 }
 
 export const DEFAULT_PORT = 3737;
 
 export class ArgsError extends Error {}
 
-export const USAGE = `Usage: mdview <file.md> [--port N] [--open]
+export const USAGE = `Usage: mdview <file.md> [--port N] [--open] [--dev]
 
   <file.md>   Markdown file to view (required)
   --port N    TCP port on 127.0.0.1 (default ${DEFAULT_PORT}; 0 = any free port)
-  --open      open the page in the default browser`;
+  --open      open the page in the default browser
+  --dev       rebuild the page code on every request (for working on mdview itself)`;
 
 export function parseArgs(argv: readonly string[]): CliArgs {
   let file: string | undefined;
   let port = DEFAULT_PORT;
   let open = false;
+  let dev = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -26,6 +29,8 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     if (arg === "--help" || arg === "-h") throw new ArgsError(USAGE);
     if (arg === "--open") {
       open = true;
+    } else if (arg === "--dev") {
+      dev = true;
     } else if (arg === "--port") {
       const value = argv[++i];
       port = parsePort(value);
@@ -41,7 +46,7 @@ export function parseArgs(argv: readonly string[]): CliArgs {
   }
 
   if (file === undefined) throw new ArgsError(`No file given.\n\n${USAGE}`);
-  return { file, port, open };
+  return { file, port, open, dev };
 }
 
 function parsePort(value: string | undefined): number {

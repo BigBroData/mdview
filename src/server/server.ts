@@ -19,6 +19,8 @@ export interface ServerOptions {
   port: number;
   /** Minify the client bundle (slower start, smaller payload). Default true. */
   minify?: boolean;
+  /** Rebuild the client on every request — for working on mdview itself. */
+  dev?: boolean;
 }
 
 export interface RunningServer {
@@ -36,7 +38,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const dir = dirname(file);
   const title = basename(file);
 
-  const bundle = await buildClient(options.minify ?? true);
+  let bundle = await buildClient(options.minify ?? true);
+  const currentBundle = async () => {
+    if (options.dev) bundle = await buildClient(false);
+    return bundle;
+  };
   const indexHtml = (await readIndexHtml()).replaceAll("{{title}}", escapeHtml(title));
 
   const subscribers = new Set<ReadableStreamDefaultController<Uint8Array>>();
@@ -58,6 +64,9 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: options.port,
+    // Bun drops a connection after 10 s without traffic by default, which
+    // silently killed the /events stream. Local, single-user server: no timeout.
+    idleTimeout: 0,
     async fetch(request) {
       const url = new URL(request.url);
       const path = url.pathname;
@@ -66,8 +75,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         return new Response("Method not allowed", { status: 405 });
       }
       if (path === "/") return text(indexHtml, "text/html; charset=utf-8");
-      if (path === "/client.js") return text(bundle.js, "text/javascript; charset=utf-8");
-      if (path === "/client.css") return text(bundle.css, "text/css; charset=utf-8");
+      if (path === "/client.js") {
+        return text((await currentBundle()).js, "text/javascript; charset=utf-8");
+      }
+      if (path === "/client.css") {
+        return text((await currentBundle()).css, "text/css; charset=utf-8");
+      }
       if (path === "/doc") return serveDocument(file);
       if (path === "/events") return serveEvents();
       if (path.startsWith("/assets/")) {

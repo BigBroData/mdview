@@ -132,6 +132,25 @@ describe("live reload", () => {
     await reader.cancel();
   });
 
+  test("the event stream survives more than 10 s of silence (Bun's default idle timeout)", async () => {
+    const events = await fetch(new URL("/events", server.url));
+    const reader = events.body?.getReader();
+    if (!reader) throw new Error("no body");
+    await reader.read(); // "hello"
+    await Bun.sleep(21_000);
+    // Still connected: a change must arrive on the same stream.
+    await writeFile(file, "# After silence\n", "utf8");
+    // Heartbeat pings may arrive first; the change must follow on the same stream.
+    let received = "";
+    for (let i = 0; i < 5 && !received.includes("changed"); i++) {
+      const chunk = await reader.read();
+      expect(chunk.done).toBe(false);
+      received += new TextDecoder().decode(chunk.value);
+    }
+    expect(received).toContain("data: changed");
+    await reader.cancel();
+  }, 40_000);
+
   test("a deleted document answers 404 instead of crashing", async () => {
     await rm(file);
     expect((await get("/doc")).status).toBe(404);

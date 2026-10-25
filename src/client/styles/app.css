@@ -16,7 +16,8 @@
     Consolas, monospace;
   --text-size: 17px;
   --text-leading: 1.65;
-  --measure: 44rem;
+  --measure: 44rem; /* width of the text column */
+  --gutter: 1.5rem;
 
   /* surfaces and ink */
   --bg: #fcfcfb;
@@ -29,6 +30,7 @@
   --surface: #f3f4f5;
   --surface-ink: #24272a;
   --mark: #fff3a8;
+  --selection: rgba(42, 102, 196, 0.18);
 
   /* code tokens */
   --tok-comment: #8b9097;
@@ -54,6 +56,7 @@
     --surface: #24272b;
     --surface-ink: #e4e5e3;
     --mark: #5a4b12;
+    --selection: rgba(127, 176, 238, 0.28);
 
     --tok-comment: #7d838b;
     --tok-keyword: #c98cdc;
@@ -79,16 +82,21 @@ html {
   font: var(--text-size) / var(--text-leading) var(--font-text);
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
+  scrollbar-width: thin;
 }
 
 body {
   margin: 0;
 }
 
+::selection {
+  background: var(--selection);
+}
+
 .document {
   max-width: var(--measure);
   margin: 0 auto;
-  padding: 3.5rem 1.5rem 6rem;
+  padding: 3.5rem var(--gutter) 6rem;
   overflow-wrap: break-word;
 }
 
@@ -108,8 +116,8 @@ p,
 ul,
 ol,
 pre,
-table,
 blockquote,
+.table-wrap,
 .katex-block {
   margin: 0 0 1.1em;
 }
@@ -154,6 +162,13 @@ h6 {
   color: var(--fg-muted);
 }
 
+/* a heading directly after a heading sits close to it */
+h1 + h2,
+h2 + h3,
+h3 + h4 {
+  margin-top: 0.6em;
+}
+
 a {
   color: var(--accent);
   text-decoration: underline;
@@ -170,10 +185,20 @@ strong {
   font-weight: 650;
 }
 
+s,
+del {
+  color: var(--fg-muted);
+}
+
 mark {
   background: var(--mark);
   color: inherit;
   padding: 0 0.15em;
+}
+
+sup,
+sub {
+  line-height: 0;
 }
 
 hr {
@@ -243,13 +268,36 @@ kbd,
 samp {
   font-family: var(--font-mono);
   font-size: 0.88em;
+  /* ligature fonts turn === into one glyph; code must show every character */
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
 }
 
 :not(pre) > code {
   background: var(--surface);
   color: var(--surface-ink);
-  padding: 0.12em 0.38em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code {
+  font-size: 0.82em;
+  font-weight: 550;
+  padding: 0.05em 0.3em;
+}
+
+kbd {
+  font-size: 0.8em;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
   border-radius: 5px;
+  background: var(--bg);
 }
 
 pre {
@@ -260,6 +308,7 @@ pre {
   overflow-x: auto;
   line-height: 1.55;
   tab-size: 4;
+  scrollbar-width: thin;
 }
 
 pre > code {
@@ -330,11 +379,17 @@ pre > code {
 
 /* ---------- tables ---------- */
 
-table {
-  display: block;
-  width: max-content;
+/*
+ * A table keeps its natural width inside the text column; one that cannot
+ * fit scrolls sideways in its own box instead of breaking the page.
+ */
+.table-wrap {
   max-width: 100%;
   overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+table {
   border-collapse: collapse;
   font-size: 0.94em;
   line-height: 1.5;
@@ -355,6 +410,19 @@ th {
 
 tbody tr:last-child td {
   border-bottom: 1px solid var(--rule-strong);
+}
+
+/* column hints set by the renderer (see src/render/table-columns.ts) */
+.col-short {
+  white-space: nowrap;
+}
+
+.col-prose {
+  min-width: 16rem;
+}
+
+.col-long {
+  min-width: 24rem;
 }
 
 /* ---------- media ---------- */
@@ -381,6 +449,7 @@ p > img:only-child {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.2em 0;
+  scrollbar-width: thin;
 }
 
 .katex-error {
@@ -414,6 +483,9 @@ p > img:only-child {
   .document {
     max-width: none;
     padding: 0;
+  }
+  .table-wrap {
+    max-width: none;
   }
   .status {
     display: none;

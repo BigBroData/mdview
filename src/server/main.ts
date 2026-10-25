@@ -23,7 +23,7 @@ async function main(argv: string[]): Promise<number> {
 
   let server: Awaited<ReturnType<typeof startServer>>;
   try {
-    server = await startServer({ file, port: args.port });
+    server = await startServer({ file, port: args.port, dev: args.dev });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/EADDRINUSE|address already in use|Failed to start server/i.test(message)) {

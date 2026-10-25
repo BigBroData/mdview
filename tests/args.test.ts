@@ -3,7 +3,12 @@ import { ArgsError, DEFAULT_PORT, parseArgs } from "../src/server/args.ts";
 
 describe("parseArgs", () => {
   test("file only", () => {
-    expect(parseArgs(["notes.md"])).toEqual({ file: "notes.md", port: DEFAULT_PORT, open: false });
+    expect(parseArgs(["notes.md"])).toEqual({
+      file: "notes.md",
+      port: DEFAULT_PORT,
+      open: false,
+      dev: false,
+    });
   });
 
   test("port and open in any order", () => {
@@ -11,8 +16,14 @@ describe("parseArgs", () => {
       file: "a.md",
       port: 0,
       open: true,
+      dev: false,
     });
-    expect(parseArgs(["a.md", "--port=8080"])).toEqual({ file: "a.md", port: 8080, open: false });
+    expect(parseArgs(["a.md", "--port=8080"])).toEqual({
+      file: "a.md",
+      port: 8080,
+      open: false,
+      dev: false,
+    });
   });
 
   test("errors are ArgsError with usage text", () => {
@@ -24,5 +35,6 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["a.md", "--port", "70000"])).toThrow(/0\.\.65535/);
     expect(() => parseArgs(["a.md", "--bogus"])).toThrow(/Unknown option/);
     expect(() => parseArgs(["--help"])).toThrow(ArgsError);
+    expect(parseArgs(["a.md", "--dev"]).dev).toBe(true);
   });
 });

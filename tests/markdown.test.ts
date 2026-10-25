@@ -9,8 +9,9 @@ const html = renderMarkdown(fixture, { assetBase: "/assets" });
 describe("renderMarkdown on the fixture", () => {
   test("headings and GFM tables", () => {
     expect(html).toContain("<h1>Fixture</h1>");
-    expect(html).toContain("<table>");
-    expect(html).toContain("<th>a</th>");
+    expect(html).toContain('<div class="table-wrap"><table>');
+    expect(html).toContain("</table></div>");
+    expect(html).toContain('<th class="col-short">a</th>');
   });
 
   test("inline and display math via KaTeX", () => {
