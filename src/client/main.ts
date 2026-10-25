@@ -24,8 +24,9 @@ import {
  * Keys: Ctrl+O open · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
+const scroller = mustFind("scroller");
 const status = mustFind("status");
-const outline = createOutline(mustFind("outline"), doc);
+const outline = createOutline(mustFind("outline"), doc, scroller);
 const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlatform();
 const store = browserStore();
 let settings: Settings = loadSettings(store);
@@ -35,13 +36,15 @@ let lastText: string | null = null;
 function render(document_: Document): void {
   if (document_.text === lastText) return; // the save did not change the text
   lastText = document_.text;
-  const scrollY = window.scrollY;
+  const scrollTop = scroller.scrollTop;
   const started = performance.now();
   doc.innerHTML = renderMarkdown(document_.text, { assetBase: platform.assetBase });
   // Synchronous on purpose: requestAnimationFrame does not fire in a hidden
   // tab, and the strip must be right whenever the page becomes visible.
-  window.scrollTo(0, scrollY);
+  scroller.scrollTop = scrollTop;
   outline.update();
+  // Keyboard scrolling (PgDn, Space, arrows) goes to the focused scroller.
+  if (document.activeElement === document.body) scroller.focus({ preventScroll: true });
   if (document_.name) document.title = document_.name;
   console.debug(`mdview: rendered in ${(performance.now() - started).toFixed(1)} ms`);
 }
@@ -159,7 +162,7 @@ if (platform.onFileDropped && platform.openPath) {
 }
 
 let scrollTicking = false;
-window.addEventListener(
+scroller.addEventListener(
   "scroll",
   () => {
     if (scrollTicking) return;

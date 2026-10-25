@@ -82,11 +82,29 @@ html {
   font: var(--text-size) / var(--text-leading) var(--font-text);
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
-  scrollbar-width: thin;
+  height: 100%;
 }
 
+/*
+ * The window itself never scrolls: the document scrolls inside .scroller and
+ * the heading strip stands beside it. Nothing is position: fixed, so WebKit
+ * can scroll by blitting instead of repainting (see outline.ts).
+ */
 body {
   margin: 0;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.scroller {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  outline: none;
 }
 
 ::selection {
@@ -107,7 +125,6 @@ body {
 
 :root[data-width="full"] .document {
   max-width: none;
-  padding-right: calc(var(--gutter) + 1.5rem); /* room for the heading strip */
 }
 
 @media (max-width: 600px) {
@@ -483,30 +500,20 @@ p > img:only-child {
  * Hovering the strip reveals the heading names; a click jumps there.
  */
 .outline {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  flex: 0 0 1.5rem;
   width: 1.5rem;
-  z-index: 10;
   cursor: default;
   user-select: none;
   touch-action: none;
-  /* own compositor layer: scrolling must not repaint the page because of it */
-  will-change: transform;
+}
+
+.outline[hidden] {
+  display: none;
 }
 
 .outline--dragging {
   cursor: grabbing;
-}
-
-/* the strip replaces the native scrollbar while it is shown */
-html.outline-active {
-  scrollbar-width: none;
-}
-
-html.outline-active::-webkit-scrollbar {
-  display: none;
 }
 
 .outline__ticks,
@@ -618,8 +625,8 @@ html.outline-active::-webkit-scrollbar {
 /* ---------- status pill ---------- */
 
 .status {
-  position: fixed;
-  right: 1rem;
+  position: absolute;
+  right: 2.5rem;
   bottom: 1rem;
   max-width: calc(100vw - 2rem);
   padding: 0.45em 0.9em;
@@ -637,6 +644,14 @@ html.outline-active::-webkit-scrollbar {
   html {
     background: #fff;
     color: #000;
+  }
+  body {
+    display: block;
+    overflow: visible;
+    height: auto;
+  }
+  .scroller {
+    overflow: visible;
   }
   .document {
     max-width: none;

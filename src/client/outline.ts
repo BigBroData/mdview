@@ -68,12 +68,16 @@ export interface Outline {
 }
 
 /**
- * While the strip is shown it *is* the scrollbar: the native one is hidden
- * (see CSS for `.outline-active`), clicking the strip jumps there, dragging
- * scrolls. On scroll only a transform changes, so the compositor moves the
- * band without repainting anything.
+ * The strip stands beside the scrolling container, never over it: a fixed
+ * element over a scrolling page made WebKit repaint on every scroll step
+ * (measured: 60x the CPU of plain scrolling). Clicking the strip jumps there,
+ * dragging scrolls. On scroll only the band's transform changes.
  */
-export function createOutline(strip: HTMLElement, content: HTMLElement): Outline {
+export function createOutline(
+  strip: HTMLElement,
+  content: HTMLElement,
+  scroller: HTMLElement,
+): Outline {
   const band = document.createElement("div");
   band.className = "outline__band";
   const ticks = document.createElement("div");
@@ -85,7 +89,7 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
   let stripHeight = 0;
 
   function measure(): void {
-    pageHeight = document.documentElement.scrollHeight;
+    pageHeight = scroller.scrollHeight;
     stripHeight = strip.clientHeight;
   }
 
@@ -95,13 +99,13 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
     const infos: HeadingInfo[] = headings.map((h) => ({
       level: Number(h.tagName.slice(1)),
       text: h.textContent?.trim() ?? "",
-      top: h.getBoundingClientRect().top + window.scrollY,
+      top:
+        h.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop,
     }));
-    const visible = shouldShow(infos.length, pageHeight, window.innerHeight);
+    const visible = shouldShow(infos.length, pageHeight, scroller.clientHeight);
     strip.hidden = !visible;
-    document.documentElement.classList.toggle("outline-active", visible);
     if (!visible) return;
-    measure(); // hiding the native scrollbar can change the page height
+    measure(); // showing the strip narrows the scroller and may reflow the text
 
     ticks.replaceChildren();
     tickLayout(infos, pageHeight).forEach((tick, index) => {
@@ -121,14 +125,14 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
       });
       ticks.append(el);
     });
-    const b = viewportBand(window.scrollY, window.innerHeight, pageHeight);
+    const b = viewportBand(scroller.scrollTop, scroller.clientHeight, pageHeight);
     band.style.height = `${(b.height * 100).toFixed(3)}%`;
     track();
   }
 
   function track(): void {
     if (strip.hidden) return;
-    const b = viewportBand(window.scrollY, window.innerHeight, pageHeight);
+    const b = viewportBand(scroller.scrollTop, scroller.clientHeight, pageHeight);
     band.style.transform = `translateY(${(b.top * stripHeight).toFixed(1)}px)`;
   }
 
@@ -137,7 +141,7 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
   function scrollToPointer(event: PointerEvent): void {
     const rect = strip.getBoundingClientRect();
     const fraction = (event.clientY - rect.top) / rect.height;
-    window.scrollTo(0, scrollTopFor(fraction, pageHeight, window.innerHeight));
+    scroller.scrollTop = scrollTopFor(fraction, pageHeight, scroller.clientHeight);
   }
   strip.addEventListener("pointerdown", (event) => {
     if ((event.target as HTMLElement).closest(".outline__tick")) return;

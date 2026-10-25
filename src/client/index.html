@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="/client.css" />
   </head>
   <body>
-    <main id="doc" class="document" aria-live="polite"></main>
+    <div id="scroller" class="scroller" tabindex="-1">
+      <main id="doc" class="document" aria-live="polite"></main>
+    </div>
     <nav id="outline" class="outline" aria-label="Headings" hidden></nav>
     <div id="status" class="status" role="status" hidden></div>
     <script type="module" src="/client.js"></script>
