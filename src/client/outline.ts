@@ -65,6 +65,8 @@ export interface Outline {
   update(): void;
   /** Moves the viewport band; call on scroll. */
   track(): void;
+  /** Dots for search matches, as fractions of the page height; [] clears them. */
+  setMarks(fractions: readonly number[]): void;
 }
 
 /**
@@ -82,7 +84,9 @@ export function createOutline(
   band.className = "outline__band";
   const ticks = document.createElement("div");
   ticks.className = "outline__ticks";
-  strip.append(band, ticks);
+  const marks = document.createElement("div");
+  marks.className = "outline__marks";
+  strip.append(band, ticks, marks);
 
   let headings: HTMLElement[] = [];
   let pageHeight = 0;
@@ -161,5 +165,15 @@ export function createOutline(
   strip.addEventListener("pointerup", endDrag);
   strip.addEventListener("pointercancel", endDrag);
 
-  return { update, track };
+  function setMarks(fractions: readonly number[]): void {
+    marks.replaceChildren();
+    for (const at of fractions) {
+      const dot = document.createElement("i");
+      dot.className = "outline__mark";
+      dot.style.top = `${(Math.min(1, Math.max(0, at)) * 100).toFixed(3)}%`;
+      marks.append(dot);
+    }
+  }
+
+  return { update, track, setMarks };
 }

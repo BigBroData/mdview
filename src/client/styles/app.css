@@ -622,6 +622,109 @@ p > img:only-child {
   }
 }
 
+/* ---------- search ---------- */
+
+.search {
+  position: absolute;
+  top: 0.75rem;
+  right: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 0.9rem;
+  z-index: 20;
+}
+
+.search[hidden] {
+  display: none;
+}
+
+.search__input {
+  width: 14rem;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+  padding: 0.15em 0;
+}
+
+.search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__count {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 3.5em;
+  text-align: right;
+  padding-right: 0.25rem;
+}
+
+.search__count--none {
+  color: var(--tok-variable);
+}
+
+.search__button {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.search__button:hover,
+.search__button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--fg);
+  outline: none;
+}
+
+mark.search-hit {
+  background: var(--mark);
+  color: inherit;
+  padding: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--mark);
+}
+
+mark.search-hit--current {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* dots on the heading strip for search matches */
+.outline__marks {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.2rem;
+  width: 0.35rem;
+  pointer-events: none;
+}
+
+.outline__mark {
+  position: absolute;
+  left: 0;
+  width: 0.3rem;
+  height: 0.3rem;
+  margin-top: -0.15rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 /* ---------- status pill ---------- */
 
 .status {
@@ -660,7 +763,8 @@ p > img:only-child {
   .table-wrap {
     max-width: none;
   }
-  .status {
+  .status,
+  .search {
     display: none;
   }
   pre {

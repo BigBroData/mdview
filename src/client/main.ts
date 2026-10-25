@@ -4,6 +4,7 @@ import { createOutline } from "./outline.ts";
 import { createBrowserPlatform } from "./platform/browser.ts";
 import { createTauriPlatform } from "./platform/tauri.ts";
 import type { Document, Platform } from "./platform/types.ts";
+import { createSearch } from "./search.ts";
 import {
   browserStore,
   clampZoom,
@@ -21,12 +22,13 @@ import {
  * Everything heavy (parsing, math, highlighting) happens here, so the same
  * code runs in the browser stage and inside the Tauri window.
  *
- * Keys: Ctrl+O open · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
+ * Keys: Ctrl+O open · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
 const scroller = mustFind("scroller");
 const status = mustFind("status");
 const outline = createOutline(mustFind("outline"), doc, scroller);
+const search = createSearch(mustFind("search"), doc, scroller, outline);
 const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlatform();
 const store = browserStore();
 let settings: Settings = loadSettings(store);
@@ -43,6 +45,7 @@ function render(document_: Document): void {
   // tab, and the strip must be right whenever the page becomes visible.
   scroller.scrollTop = scrollTop;
   outline.update();
+  search.refresh(); // the old <mark>s went away with the old HTML
   // Keyboard scrolling (PgDn, Space, arrows) goes to the focused scroller.
   if (document.activeElement === document.body) scroller.focus({ preventScroll: true });
   if (document_.name) document.title = document_.name;
@@ -109,8 +112,21 @@ function changeSettings(change: Partial<Settings>, hint: string): void {
 
 function handleShortcut(event: KeyboardEvent): boolean {
   const ctrl = event.ctrlKey || event.metaKey;
-  if (!ctrl) return false;
   const key = event.key;
+  if (key === "F3") {
+    if (search.isOpen()) search.step(event.shiftKey ? -1 : 1);
+    else search.open();
+    return true;
+  }
+  if (key === "Escape" && search.isOpen()) {
+    search.close();
+    return true;
+  }
+  if (!ctrl) return false;
+  if (!event.shiftKey && key.toLowerCase() === "f") {
+    search.open();
+    return true;
+  }
   if (!event.shiftKey && key.toLowerCase() === "o" && platform.openFile) {
     void show(platform.openFile, "");
     return true;
