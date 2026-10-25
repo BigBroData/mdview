@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "mdview",
   "version": "0.1.0",
-  "identifier": "dev.mdview.app",
+  "identifier": "dev.mdview.viewer",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:3737",
