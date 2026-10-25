@@ -68,10 +68,10 @@ export interface Outline {
 }
 
 /**
- * The strip stands beside the scrolling container, never over it: a fixed
- * element over a scrolling page made WebKit repaint on every scroll step
- * (measured: 60x the CPU of plain scrolling). Clicking the strip jumps there,
- * dragging scrolls. On scroll only the band's transform changes.
+ * The strip stands beside the scrolling container, never over it, so the
+ * native scrollbar is not covered and no fixed element sits over the page.
+ * Clicking the strip jumps there, dragging scrolls. On scroll only the band's
+ * transform changes.
  */
 export function createOutline(
   strip: HTMLElement,
