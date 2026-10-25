@@ -43,7 +43,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (options.dev) bundle = await buildClient(false);
     return bundle;
   };
-  const indexHtml = (await readIndexHtml()).replaceAll("{{title}}", escapeHtml(title));
+  const pageShell = async () => (await readIndexHtml()).replaceAll("{{title}}", escapeHtml(title));
+  let indexHtml = await pageShell();
 
   const subscribers = new Set<ReadableStreamDefaultController<Uint8Array>>();
   const encoder = new TextEncoder();
@@ -74,7 +75,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       if (request.method !== "GET" && request.method !== "HEAD") {
         return new Response("Method not allowed", { status: 405 });
       }
-      if (path === "/") return text(indexHtml, "text/html; charset=utf-8");
+      if (path === "/") {
+        if (options.dev) indexHtml = await pageShell();
+        return text(indexHtml, "text/html; charset=utf-8");
+      }
       if (path === "/client.js") {
         return text((await currentBundle()).js, "text/javascript; charset=utf-8");
       }

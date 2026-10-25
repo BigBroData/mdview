@@ -100,6 +100,16 @@ body {
   overflow-wrap: break-word;
 }
 
+/* Ctrl+Shift+W cycles the column width; the choice is remembered. */
+:root[data-width="wide"] .document {
+  max-width: 64rem;
+}
+
+:root[data-width="full"] .document {
+  max-width: none;
+  padding-right: calc(var(--gutter) + 1.25rem); /* room for the heading strip */
+}
+
 @media (max-width: 600px) {
   .document {
     padding-top: 2rem;
@@ -463,6 +473,125 @@ p > img:only-child {
   color: var(--fg-muted);
   text-align: center;
   margin-top: 30vh;
+}
+
+/* ---------- heading strip ---------- */
+
+/*
+ * A thin strip at the right edge: one tick per heading, placed in proportion
+ * to its position in the document; a band shows the part on screen.
+ * Hovering the strip reveals the heading names; a click jumps there.
+ */
+.outline {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.25rem;
+  z-index: 10;
+}
+
+.outline__ticks,
+.outline__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.outline__ticks {
+  left: 0;
+  right: 0;
+}
+
+.outline__band {
+  right: 0;
+  width: 100%;
+  background: var(--fg);
+  opacity: 0.06;
+  border-radius: 2px;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.outline:hover .outline__band {
+  opacity: 0.1;
+}
+
+.outline__tick {
+  position: absolute;
+  right: 0.3rem;
+  height: 2px;
+  margin-top: -1px;
+  padding: 0;
+  border: 0;
+  border-radius: 1px;
+  background: var(--fg-muted);
+  opacity: 0.55;
+  cursor: pointer;
+  /* a taller invisible hit area */
+  outline-offset: 4px;
+}
+
+.outline__tick::before {
+  content: "";
+  position: absolute;
+  inset: -5px -0.2rem;
+}
+
+.outline__tick--h1 {
+  width: 0.65rem;
+  background: var(--accent);
+  opacity: 0.9;
+}
+.outline__tick--h2 {
+  width: 0.5rem;
+  opacity: 0.75;
+}
+.outline__tick--h3 {
+  width: 0.35rem;
+}
+.outline__tick--h4 {
+  width: 0.25rem;
+  opacity: 0.4;
+}
+
+.outline__tick:hover,
+.outline__tick:focus-visible {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.outline__label {
+  position: absolute;
+  right: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 24rem;
+  padding: 0.25em 0.6em;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.outline__tick:hover .outline__label,
+.outline__tick:focus-visible .outline__label {
+  opacity: 1;
+}
+
+@media print {
+  .outline {
+    display: none;
+  }
 }
 
 /* ---------- status pill ---------- */
