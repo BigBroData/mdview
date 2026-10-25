@@ -67,7 +67,12 @@ fn watch(app: AppHandle, path: &Path) -> Result<RecommendedWatcher, String> {
     let name = path.file_name().map(|n| n.to_os_string());
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
         let Ok(event) = result else { return };
-        let concerns_file = event.paths.is_empty()
+        // Data changes name the file; renames, creates and removes may be the
+        // temp-file half of an atomic save, so they always count. The page
+        // drops reloads whose text did not change.
+        let is_data_change = matches!(event.kind, notify::EventKind::Modify(notify::event::ModifyKind::Data(_)));
+        let concerns_file = !is_data_change
+            || event.paths.is_empty()
             || event
                 .paths
                 .iter()

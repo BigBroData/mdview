@@ -12,9 +12,18 @@ export function watchDocument(filePath: string, onChange: () => void, debounceMs
   const name = basename(filePath);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const watcher = watch(dir, { persistent: true }, (_event, changed) => {
-    // `changed` may be null on some platforms; then be conservative and reload.
-    if (changed !== null && changed !== undefined && changed.toString() !== name) return;
+  const watcher = watch(dir, { persistent: true }, (event, changed) => {
+    // A `change` names the file that changed, so other files can be ignored.
+    // A `rename` is reported for the *source* of an atomic save on Linux
+    // (".doc.md.tmp" moved over "doc.md"), so any rename in the folder may
+    // concern us: reload, and let the client drop unchanged text. `changed`
+    // may also be null on some platforms; then reload as well.
+    const concernsFile =
+      event === "rename" ||
+      changed === null ||
+      changed === undefined ||
+      changed.toString() === name;
+    if (!concernsFile) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(onChange, debounceMs);
   });

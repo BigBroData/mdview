@@ -13,8 +13,11 @@ export function resolveAsset(rootDir: string, urlPath: string): string | null {
     return null;
   }
   if (decoded.includes("\0")) return null;
-  // Windows drive letters and UNC paths are never valid asset names.
-  if (/^\/*[a-zA-Z]:/.test(decoded) || /^\/*\\\\/.test(decoded)) return null;
+  // Backslashes: a separator on Windows, a legal file-name character on Linux.
+  // Neither is a valid asset URL, so refuse them everywhere for one behaviour.
+  if (decoded.includes("\\")) return null;
+  // Windows drive letters are never valid asset names.
+  if (/^\/*[a-zA-Z]:/.test(decoded)) return null;
 
   const root = resolve(rootDir);
   const target = resolve(root, `.${decoded.startsWith("/") ? decoded : `/${decoded}`}`);
