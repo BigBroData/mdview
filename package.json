@@ -1,0 +1,30 @@
+{
+  "name": "mdview",
+  "version": "0.1.0",
+  "description": "Lightweight, elegant Markdown viewer. Stage 1: local server + browser.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/server/main.ts",
+    "build": "bun run src/server/build.ts",
+    "test": "bun test",
+    "typecheck": "bun x tsc --noEmit",
+    "lint": "bun x biome check .",
+    "format": "bun x biome format --write .",
+    "check": "bun run typecheck && bun run lint && bun test"
+  },
+  "overrides": {
+    "katex": "0.19.1"
+  },
+  "dependencies": {
+    "@vscode/markdown-it-katex": "1.1.2",
+    "highlight.js": "11.12.0",
+    "katex": "0.19.1",
+    "markdown-it": "15.0.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}
