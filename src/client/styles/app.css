@@ -457,6 +457,14 @@ p > img:only-child {
   font-size: 0.85em;
 }
 
+/* ---------- empty state ---------- */
+
+.empty {
+  color: var(--fg-muted);
+  text-align: center;
+  margin-top: 30vh;
+}
+
 /* ---------- status pill ---------- */
 
 .status {

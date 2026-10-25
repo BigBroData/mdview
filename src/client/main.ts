@@ -1,55 +1,52 @@
+import { isTauri } from "@tauri-apps/api/core";
 import { renderMarkdown } from "../render/markdown.ts";
+import { createBrowserPlatform } from "./platform/browser.ts";
+import { createTauriPlatform } from "./platform/tauri.ts";
+import type { Document, Platform } from "./platform/types.ts";
 
 /**
- * Browser side: fetch the Markdown, render it, and re-render whenever the
- * server reports that the file changed. Everything heavy (parsing, math,
- * highlighting) happens here, so the same code will run inside Tauri later.
+ * The page: render a document, re-render when the host says it changed,
+ * open another one on Ctrl+O or drag-and-drop where the host allows it.
+ * Everything heavy (parsing, math, highlighting) happens here, so the same
+ * code runs in the browser stage and inside the Tauri window.
  */
 const doc = mustFind("doc");
 const status = mustFind("status");
+const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlatform();
 
-let lastSource: string | null = null;
+let lastText: string | null = null;
 
-async function load(): Promise<void> {
-  let response: Response;
-  try {
-    response = await fetch("/doc", { cache: "no-store" });
-  } catch {
-    showStatus("Viewer stopped. Start mdview again and reload.");
-    return;
-  }
-  if (!response.ok) {
-    showStatus("File not found. Last rendered version is shown.");
-    return;
-  }
-  const source = await response.text();
-  if (source === lastSource) {
-    hideStatus();
-    return; // the save did not change the text; keep the page still
-  }
-  lastSource = source;
-
+function render(document_: Document): void {
+  if (document_.text === lastText) return; // the save did not change the text
+  lastText = document_.text;
   const scrollY = window.scrollY;
   const started = performance.now();
-  doc.innerHTML = renderMarkdown(source, { assetBase: "/assets" });
+  doc.innerHTML = renderMarkdown(document_.text, { assetBase: platform.assetBase });
   requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  if (document_.name) document.title = document_.name;
   console.debug(`mdview: rendered in ${(performance.now() - started).toFixed(1)} ms`);
-  hideStatus();
 }
 
-function connect(): void {
-  const events = new EventSource("/events");
-  events.addEventListener("message", (event: MessageEvent<string>) => {
-    if (event.data === "changed") void load();
-  });
-  events.addEventListener("open", () => {
-    // After a reconnect we may have missed a change: fetch once to be sure.
-    void load();
-  });
-  events.addEventListener("error", () => {
-    // The browser reconnects by itself; we only tell the user what is going on.
-    showStatus("Connection to viewer lost — reconnecting…");
-  });
+async function show(load: () => Promise<Document | null>, missingMessage: string): Promise<void> {
+  let loaded: Document | null;
+  try {
+    loaded = await load();
+  } catch (error) {
+    showStatus(String(error));
+    return;
+  }
+  if (loaded === null) {
+    showStatus(missingMessage);
+    return;
+  }
+  hideStatus();
+  render(loaded);
+}
+
+function showEmptyState(): void {
+  doc.innerHTML = `<p class="empty">No file open.${
+    platform.openFile ? " Press <kbd>Ctrl</kbd>+<kbd>O</kbd> or drop a Markdown file here." : ""
+  }</p>`;
 }
 
 function showStatus(message: string): void {
@@ -67,5 +64,41 @@ function mustFind(id: string): HTMLElement {
   return element;
 }
 
-void load();
-connect();
+// --- wiring ---------------------------------------------------------------
+
+platform.onConnectionLost?.((lost) => {
+  if (lost) showStatus("Connection to viewer lost — reconnecting…");
+  else hideStatus();
+});
+
+platform.watch(() => {
+  void show(platform.reload, "File not found. Last rendered version is shown.");
+});
+
+if (platform.openFile) {
+  const openFile = platform.openFile;
+  window.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      void show(openFile, "");
+    }
+  });
+}
+
+if (platform.onFileDropped && platform.openPath) {
+  const openPath = platform.openPath;
+  platform.onFileDropped((path) => {
+    void show(() => openPath(path), "");
+  });
+}
+
+void (async () => {
+  let initial: Document | null = null;
+  try {
+    initial = await platform.initial();
+  } catch (error) {
+    showStatus(String(error));
+  }
+  if (initial) render(initial);
+  else showEmptyState();
+})();

@@ -53,12 +53,56 @@ bun test           # только тесты
 bun run build      # статический клиент в dist/ (вход для этапа Tauri)
 ```
 
+## Настольное приложение (этап 2, Tauri 2) — сборка на Linux
+
+Папка `src-tauri/` — оболочка на Rust: читает файл по пути, следит за ним,
+отдаёт картинки рядом с ним, открывает родной диалог GNOME по Ctrl+O, принимает
+файл из командной строки и из файлового менеджера. Страница внутри окна — тот
+же клиент из `dist/`.
+
+Один раз на машине с Pop!_OS / Ubuntu:
+
+```bash
+sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+```bash
+curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+```
+
+(после rustup откройте новый терминал или выполните `source ~/.cargo/env`).
+
+Сборка пакета:
+
+```bash
+cd ~/mdview && bun install && bun run desktop:build
+```
+
+Пакет появится в `src-tauri/target/release/bundle/deb/mdview_0.1.0_amd64.deb`.
+Установка и проверка:
+
+```bash
+sudo apt install ./src-tauri/target/release/bundle/deb/mdview_0.1.0_amd64.deb
+```
+
+```bash
+mdview README.md
+```
+
+После установки `.md` открываются двойным кликом (ассоциация `text/markdown`);
+если файловый менеджер предлагает другую программу, выберите mdview через
+«Открыть с помощью» один раз.
+
+Проверка Rust-части без сборки пакета: `cd src-tauri && cargo test`.
+Окно разработки с живой пересборкой клиента: `bun run desktop:dev`.
+
 ## Где что лежит
 
 ```
 src/render/   рендер Markdown в HTML: чистая функция, общая для браузера и тестов
 src/server/   CLI, HTTP-сервер, слежение за файлом, сборка клиента
-src/client/   страница, стили, код в браузере
+src/client/   страница, стили, код в браузере; platform/ — слой «браузер или Tauri»
+src-tauri/    оболочка Tauri 2 (Rust), конфиг пакета, шаблон .desktop
 tests/        bun test; tests/fixtures — образцы документов
 docs/         decisions.md (почему так), backlog.md (что отложено)
 ```
