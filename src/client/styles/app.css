@@ -107,7 +107,7 @@ body {
 
 :root[data-width="full"] .document {
   max-width: none;
-  padding-right: calc(var(--gutter) + 1.25rem); /* room for the heading strip */
+  padding-right: calc(var(--gutter) + 1.5rem); /* room for the heading strip */
 }
 
 @media (max-width: 600px) {
@@ -487,8 +487,26 @@ p > img:only-child {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 1.25rem;
+  width: 1.5rem;
   z-index: 10;
+  cursor: default;
+  user-select: none;
+  touch-action: none;
+  /* own compositor layer: scrolling must not repaint the page because of it */
+  will-change: transform;
+}
+
+.outline--dragging {
+  cursor: grabbing;
+}
+
+/* the strip replaces the native scrollbar while it is shown */
+html.outline-active {
+  scrollbar-width: none;
+}
+
+html.outline-active::-webkit-scrollbar {
+  display: none;
 }
 
 .outline__ticks,
@@ -504,17 +522,20 @@ p > img:only-child {
 }
 
 .outline__band {
+  top: 0;
+  bottom: auto;
   right: 0;
   width: 100%;
   background: var(--fg);
-  opacity: 0.06;
-  border-radius: 2px;
+  opacity: 0.08;
+  border-radius: 3px;
   pointer-events: none;
-  transition: opacity 0.15s;
+  will-change: transform;
 }
 
-.outline:hover .outline__band {
-  opacity: 0.1;
+.outline:hover .outline__band,
+.outline--dragging .outline__band {
+  opacity: 0.14;
 }
 
 .outline__tick {

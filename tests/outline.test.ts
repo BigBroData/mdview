@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { MIN_HEADINGS, shouldShow, tickLayout, viewportBand } from "../src/client/outline.ts";
+import {
+  MIN_HEADINGS,
+  scrollTopFor,
+  shouldShow,
+  tickLayout,
+  viewportBand,
+} from "../src/client/outline.ts";
 
 describe("tickLayout", () => {
   test("positions are fractions of the page height, clamped to 0..1", () => {
@@ -41,5 +47,14 @@ describe("shouldShow", () => {
     expect(shouldShow(MIN_HEADINGS, 3000, 800)).toBe(true);
     expect(shouldShow(MIN_HEADINGS - 1, 3000, 800)).toBe(false);
     expect(shouldShow(10, 1000, 800)).toBe(false);
+  });
+});
+
+describe("scrollTopFor", () => {
+  test("centres the chosen point and clamps to the scrollable range", () => {
+    expect(scrollTopFor(0.5, 10000, 1000)).toBe(4500);
+    expect(scrollTopFor(0, 10000, 1000)).toBe(0);
+    expect(scrollTopFor(1, 10000, 1000)).toBe(9000);
+    expect(scrollTopFor(0.5, 500, 1000)).toBe(0); // page shorter than the window
   });
 });

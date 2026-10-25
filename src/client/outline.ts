@@ -51,6 +51,13 @@ export function shouldShow(
   return headingCount >= MIN_HEADINGS && pageHeight > viewportHeight * 1.5;
 }
 
+/** Scroll position that puts the point at `fraction` of the page in the middle of the window. */
+export function scrollTopFor(fraction: number, pageHeight: number, viewportHeight: number): number {
+  const max = Math.max(0, pageHeight - viewportHeight);
+  const target = fraction * pageHeight - viewportHeight / 2;
+  return Math.min(max, Math.max(0, target));
+}
+
 // --- DOM part -------------------------------------------------------------
 
 export interface Outline {
@@ -60,6 +67,12 @@ export interface Outline {
   track(): void;
 }
 
+/**
+ * While the strip is shown it *is* the scrollbar: the native one is hidden
+ * (see CSS for `.outline-active`), clicking the strip jumps there, dragging
+ * scrolls. On scroll only a transform changes, so the compositor moves the
+ * band without repainting anything.
+ */
 export function createOutline(strip: HTMLElement, content: HTMLElement): Outline {
   const band = document.createElement("div");
   band.className = "outline__band";
@@ -68,25 +81,30 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
   strip.append(band, ticks);
 
   let headings: HTMLElement[] = [];
+  let pageHeight = 0;
+  let stripHeight = 0;
 
-  function pageHeight(): number {
-    return document.documentElement.scrollHeight;
+  function measure(): void {
+    pageHeight = document.documentElement.scrollHeight;
+    stripHeight = strip.clientHeight;
   }
 
   function update(): void {
     headings = Array.from(content.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"));
-    const total = pageHeight();
+    measure();
     const infos: HeadingInfo[] = headings.map((h) => ({
       level: Number(h.tagName.slice(1)),
       text: h.textContent?.trim() ?? "",
       top: h.getBoundingClientRect().top + window.scrollY,
     }));
-    const visible = shouldShow(infos.length, total, window.innerHeight);
+    const visible = shouldShow(infos.length, pageHeight, window.innerHeight);
     strip.hidden = !visible;
+    document.documentElement.classList.toggle("outline-active", visible);
     if (!visible) return;
+    measure(); // hiding the native scrollbar can change the page height
 
     ticks.replaceChildren();
-    tickLayout(infos, total).forEach((tick, index) => {
+    tickLayout(infos, pageHeight).forEach((tick, index) => {
       const el = document.createElement("button");
       el.type = "button";
       el.className = `outline__tick outline__tick--h${Math.min(tick.level, 4)}`;
@@ -97,20 +115,47 @@ export function createOutline(strip: HTMLElement, content: HTMLElement): Outline
       label.className = "outline__label";
       label.textContent = tick.text;
       el.append(label);
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (event) => {
+        event.stopPropagation();
         headings[index]?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
       ticks.append(el);
     });
+    const b = viewportBand(window.scrollY, window.innerHeight, pageHeight);
+    band.style.height = `${(b.height * 100).toFixed(3)}%`;
     track();
   }
 
   function track(): void {
     if (strip.hidden) return;
-    const b = viewportBand(window.scrollY, window.innerHeight, pageHeight());
-    band.style.top = `${(b.top * 100).toFixed(3)}%`;
-    band.style.height = `${(b.height * 100).toFixed(3)}%`;
+    const b = viewportBand(window.scrollY, window.innerHeight, pageHeight);
+    band.style.transform = `translateY(${(b.top * stripHeight).toFixed(1)}px)`;
   }
+
+  // Click and drag on the strip scroll the page, like a scrollbar track.
+  let dragging = false;
+  function scrollToPointer(event: PointerEvent): void {
+    const rect = strip.getBoundingClientRect();
+    const fraction = (event.clientY - rect.top) / rect.height;
+    window.scrollTo(0, scrollTopFor(fraction, pageHeight, window.innerHeight));
+  }
+  strip.addEventListener("pointerdown", (event) => {
+    if ((event.target as HTMLElement).closest(".outline__tick")) return;
+    dragging = true;
+    strip.classList.add("outline--dragging");
+    strip.setPointerCapture(event.pointerId);
+    scrollToPointer(event);
+    event.preventDefault();
+  });
+  strip.addEventListener("pointermove", (event) => {
+    if (dragging) scrollToPointer(event);
+  });
+  const endDrag = () => {
+    dragging = false;
+    strip.classList.remove("outline--dragging");
+  };
+  strip.addEventListener("pointerup", endDrag);
+  strip.addEventListener("pointercancel", endDrag);
 
   return { update, track };
 }
