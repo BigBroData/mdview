@@ -1,6 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { isMdxName, renderMarkdown } from "../render/markdown.ts";
-import { createHistory, type Entry } from "./history.ts";
+import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
 import { classifyLink } from "./links.ts";
 import { createOutline } from "./outline.ts";
@@ -18,6 +18,8 @@ import {
   ZOOM_DEFAULT,
   ZOOM_STEP,
 } from "./settings.ts";
+import { createTabBar } from "./tabbar.ts";
+import { createTabs, type Tab } from "./tabs.ts";
 
 /**
  * The page: render a document, re-render when the host says it changed,
@@ -28,7 +30,11 @@ import {
  * Links: #anchors scroll, links to other Markdown files open in this window
  * (Alt+Left / Alt+Right go back and forward), web links open in the browser.
  *
- * Keys: Ctrl+O open · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
+ * Tabs: Ctrl+O, a drop, a second start of the app and Ctrl+click on a link open a document
+ * in a tab of this window; every tab has its own history. Ctrl+W closes, Ctrl+Tab and
+ * Ctrl+1..9 switch. Only the active tab is watched for changes (the host holds one document).
+ *
+ * Keys: Ctrl+O open · Ctrl+W close tab · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
 const scroller = mustFind("scroller");
@@ -39,7 +45,22 @@ const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlat
 const store = browserStore();
 let settings: Settings = loadSettings(store);
 
-const history = createHistory();
+const tabs = createTabs();
+const tabBar = createTabBar(mustFind("tabs"), {
+  select: (id) => serial(() => switchTo(id)),
+  close: (id) => serial(() => closeTab(id)),
+});
+
+/**
+ * The host holds one open document, so everything that changes it (opening,
+ * switching, closing, reloading) runs one after another.
+ */
+let queue: Promise<void> = Promise.resolve();
+function serial(task: () => Promise<void>): void {
+  queue = queue.then(task).catch((error: unknown) => showStatus(String(error)));
+}
+
+const activeHistory = () => tabs.active()?.history;
 let lastText: string | null = null;
 let currentPath = "";
 
@@ -68,6 +89,12 @@ function render(document_: Document, options: RenderOptions = {}): void {
   // Keyboard scrolling (PgDn, Space, arrows) goes to the focused scroller.
   if (document.activeElement === document.body) scroller.focus({ preventScroll: true });
   if (document_.name) document.title = document_.name;
+  const tab = tabs.active();
+  if (tab) {
+    tab.path = document_.path;
+    tab.name = document_.name;
+  }
+  tabBar.update(tabs.all(), tab?.id);
   console.debug(`mdview: rendered in ${(performance.now() - started).toFixed(1)} ms`);
 }
 
@@ -84,7 +111,7 @@ async function load(
     return null;
   }
   if (loaded === null) {
-    showStatus(missingMessage);
+    if (missingMessage) showStatus(missingMessage); // empty: the user cancelled a dialog
     return null;
   }
   hideStatus();
@@ -97,18 +124,101 @@ async function show(loader: () => Promise<Document | null>, missingMessage: stri
   if (loaded) render(loaded);
 }
 
-/** Moves to another document (a link, the file dialog, a drop) and records it in the history. */
+/** Follows a link inside the active tab and records it in that tab's history. */
 async function navigate(
   loader: () => Promise<Document | null>,
   missingMessage: string,
   fragment = "",
 ): Promise<void> {
+  const tab = tabs.active();
   const loaded = await load(loader, missingMessage);
-  if (!loaded) return;
-  history.saveScroll(scroller.scrollTop);
+  if (!loaded || !tab) return;
+  tab.history.saveScroll(scroller.scrollTop);
   render(loaded, { force: true, scrollTop: 0 });
   if (fragment) scrollToId(fragment);
-  history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+  tab.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+}
+
+/**
+ * Shows a document in a tab: the tab that already shows it, else a new one.
+ * Returns the tab, or undefined when the document could not be loaded.
+ */
+async function openInTab(
+  loader: () => Promise<Document | null>,
+  missingMessage: string,
+  fragment = "",
+): Promise<Tab | undefined> {
+  const loaded = await load(loader, missingMessage);
+  if (!loaded) return undefined;
+  const from = tabs.active();
+  from?.history.saveScroll(scroller.scrollTop);
+  const existing = tabs.find(loaded.path);
+  if (existing) {
+    tabs.activate(existing.id);
+    const scrollTop =
+      existing === from ? scroller.scrollTop : (existing.history.current()?.scrollTop ?? 0);
+    render(loaded, { force: true, scrollTop });
+    if (fragment && scrollToId(fragment)) {
+      existing.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+    }
+    return existing;
+  }
+  const tab = tabs.add(loaded.path, loaded.name);
+  render(loaded, { force: true, scrollTop: 0 });
+  if (fragment) scrollToId(fragment);
+  tab.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+  return tab;
+}
+
+/** Opens several documents as tabs; the first of them ends up in front. */
+function openPaths(paths: string[]): void {
+  const openPath = platform.openPath;
+  if (!openPath || paths.length === 0) return;
+  serial(async () => {
+    let first: Tab | undefined;
+    for (const path of paths) {
+      const tab = await openInTab(() => openPath(path), `File not found: ${path}`);
+      first ??= tab;
+    }
+    if (first && first !== tabs.active()) await showTab(first);
+  });
+}
+
+/** Brings an existing tab to the front: the host loads its document, the page restores its place. */
+async function showTab(target: Tab): Promise<boolean> {
+  const openPath = platform.openPath;
+  if (!openPath) return false;
+  const from = tabs.active();
+  const loaded = await load(() => openPath(target.path), `Cannot open ${target.path}`);
+  if (!loaded) return false;
+  from?.history.saveScroll(scroller.scrollTop);
+  tabs.activate(target.id);
+  render(loaded, { force: true, scrollTop: target.history.current()?.scrollTop ?? 0 });
+  return true;
+}
+
+async function switchTo(id: number): Promise<void> {
+  const target = tabs.all().find((tab) => tab.id === id);
+  if (target && target !== tabs.active()) await showTab(target);
+}
+
+async function closeTab(id: number): Promise<void> {
+  if (!tabs.all().some((tab) => tab.id === id)) return;
+  if (tabs.all().length === 1) {
+    platform.closeWindow?.(); // closing the last tab closes the window
+    return;
+  }
+  const wasActive = tabs.active()?.id === id;
+  let next = tabs.remove(id);
+  if (wasActive) {
+    // A tab whose file vanished cannot be shown; drop it too and try its neighbour.
+    while (next && !(await showTab(next))) next = tabs.remove(next.id);
+    if (!next) {
+      lastText = null;
+      showEmptyState();
+    }
+  }
+  tabBar.update(tabs.all(), tabs.active()?.id);
 }
 
 /** Back / forward: same document just scrolls, another one is loaded. */
@@ -123,15 +233,17 @@ async function visit(entry: Entry): Promise<void> {
 }
 
 function goBack(): void {
-  history.saveScroll(scroller.scrollTop);
-  const entry = history.back();
-  if (entry) void visit(entry);
+  const history = activeHistory();
+  history?.saveScroll(scroller.scrollTop);
+  const entry = history?.back();
+  if (entry) serial(() => visit(entry));
 }
 
 function goForward(): void {
-  history.saveScroll(scroller.scrollTop);
-  const entry = history.forward();
-  if (entry) void visit(entry);
+  const history = activeHistory();
+  history?.saveScroll(scroller.scrollTop);
+  const entry = history?.forward();
+  if (entry) serial(() => visit(entry));
 }
 
 function scrollToId(id: string): boolean {
@@ -142,21 +254,25 @@ function scrollToId(id: string): boolean {
   return true;
 }
 
-function followLink(event: MouseEvent): void {
-  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
-    return;
+/** A click on a link; with `inNewTab` (Ctrl+click, middle button) a document link opens as a tab. */
+function followLink(event: MouseEvent, inNewTab: boolean): void {
   const anchor = (event.target as Element).closest("a[href]");
   if (!anchor) return;
   const link = classifyLink(anchor.getAttribute("href") ?? "");
   event.preventDefault();
   if (link.kind === "anchor") {
-    history.saveScroll(scroller.scrollTop);
-    if (scrollToId(link.id)) history.push({ path: currentPath, scrollTop: scroller.scrollTop });
+    const history = activeHistory();
+    history?.saveScroll(scroller.scrollTop);
+    if (scrollToId(link.id)) history?.push({ path: currentPath, scrollTop: scroller.scrollTop });
   } else if (link.kind === "document") {
     const openLink = platform.openLink;
-    if (openLink) {
-      void navigate(() => openLink(link.path), `File not found: ${link.path}`, link.fragment);
-    }
+    if (!openLink) return;
+    const missing = `File not found: ${link.path}`;
+    if (inNewTab) {
+      serial(async () => {
+        await openInTab(() => openLink(link.path), missing, link.fragment);
+      });
+    } else serial(() => navigate(() => openLink(link.path), missing, link.fragment));
   } else if (link.kind === "external") {
     void platform.openExternal?.(link.url);
   }
@@ -227,8 +343,28 @@ function handleShortcut(event: KeyboardEvent): boolean {
     return true;
   }
   if (!event.shiftKey && key === "o" && platform.openFile) {
-    void navigate(platform.openFile, "");
+    const openFile = platform.openFile;
+    serial(async () => {
+      await openInTab(openFile, "");
+    });
     return true;
+  }
+  if (!event.shiftKey && key === "w" && (tabs.all().length > 1 || platform.closeWindow)) {
+    const tab = tabs.active();
+    if (tab) serial(() => closeTab(tab.id));
+    return true;
+  }
+  if (key === "Tab" || key === "PageDown" || key === "PageUp") {
+    const backwards = key === "PageUp" || (key === "Tab" && event.shiftKey);
+    const target = tabs.step(backwards ? -1 : 1);
+    if (target) serial(() => switchTo(target.id));
+    return target !== undefined;
+  }
+  if (!event.shiftKey && key >= "1" && key <= "9") {
+    // Like a browser: Ctrl+1..8 pick that tab, Ctrl+9 the last one.
+    const target = key === "9" ? tabs.all().at(-1) : tabs.at(Number(key) - 1);
+    if (target) serial(() => switchTo(target.id));
+    return target !== undefined;
   }
   if (event.shiftKey && key === "w") {
     const width = nextWidth(settings.width);
@@ -262,21 +398,22 @@ platform.onConnectionLost?.((lost) => {
 });
 
 platform.watch(() => {
-  void show(platform.reload, "File not found. Last rendered version is shown.");
+  serial(() => show(platform.reload, "File not found. Last rendered version is shown."));
 });
 
 window.addEventListener("keydown", (event) => {
   if (handleShortcut(event)) event.preventDefault();
 });
 
-if (platform.onFileDropped && platform.openPath) {
-  const openPath = platform.openPath;
-  platform.onFileDropped((path) => {
-    void navigate(() => openPath(path), "");
-  });
-}
+platform.onFileDropped?.(openPaths);
+platform.onOpenRequest?.(openPaths);
 
-doc.addEventListener("click", followLink);
+doc.addEventListener("click", (event) => {
+  if (event.button === 0) followLink(event, event.ctrlKey || event.metaKey);
+});
+doc.addEventListener("auxclick", (event) => {
+  if (event.button === 1) followLink(event, true);
+});
 // Mouse side buttons, like in a browser.
 window.addEventListener("mouseup", (event) => {
   if (event.button === 3) goBack();
@@ -310,10 +447,19 @@ void (async () => {
   } catch (error) {
     showStatus(String(error));
   }
-  if (initial) {
-    render(initial);
-    history.push({ path: initial.path, scrollTop: 0 });
-  } else {
+  if (!initial) {
     showEmptyState();
+    return;
   }
+  const first = tabs.add(initial.path, initial.name);
+  render(initial);
+  first.history.push({ path: initial.path, scrollTop: 0 });
+  // More files on the command line open as tabs behind the first one.
+  const more = await platform.initialPaths?.().catch(() => []);
+  const openPath = platform.openPath;
+  if (!more || more.length === 0 || !openPath) return;
+  serial(async () => {
+    for (const path of more) await openInTab(() => openPath(path), `File not found: ${path}`);
+    if (tabs.active() !== first) await showTab(first);
+  });
 })();

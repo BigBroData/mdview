@@ -21,6 +21,11 @@ export function createTauriPlatform(): Platform {
     reload: () => invoke<Document | null>("read_document").then(track),
     openLink: (href) => openPath(resolveRelative(currentPath, href)),
     openExternal: (url) => invoke<void>("open_external", { url }),
+    initialPaths: () => invoke<string[]>("extra_documents"),
+    closeWindow: () => void invoke<void>("close_window"),
+    onOpenRequest(handler) {
+      void listen<string[]>("open-request", (event) => handler(event.payload));
+    },
     watch(onChange) {
       // One save can produce several file-system events; deliver one reload.
       void listen("document-changed", debounce(onChange, 60));
@@ -41,8 +46,7 @@ export function createTauriPlatform(): Platform {
     },
     onFileDropped(handler) {
       void listen<{ paths: string[] }>("tauri://drag-drop", (event) => {
-        const first = event.payload.paths[0];
-        if (first) handler(first);
+        if (event.payload.paths.length > 0) handler(event.payload.paths);
       });
     },
   };

@@ -103,8 +103,16 @@ body {
   margin: 0;
   height: 100%;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+/* The scroller and the heading strip side by side, below the tabs. */
+.reader {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
 }
 
 .scroller {
@@ -662,6 +670,82 @@ p > img:only-child {
   }
 }
 
+/* ---------- tabs ---------- */
+
+/* Hidden while there is a single document (see tabbar.ts). */
+.tabs {
+  --tabs-height: 2.25rem;
+  flex: 0 0 var(--tabs-height);
+  height: var(--tabs-height);
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  padding: 0 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.tabs[hidden] {
+  display: none;
+}
+
+.tab {
+  flex: 0 1 12rem;
+  min-width: 5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.3rem 0 0.75rem;
+  color: var(--fg-muted);
+  border-bottom: 2px solid transparent;
+  cursor: default;
+}
+
+.tab:hover {
+  color: var(--fg);
+}
+
+.tab--active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+
+.tab__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab__close {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tab:hover .tab__close,
+.tab.tab--active .tab__close {
+  opacity: 0.7;
+}
+
+.tab .tab__close:hover {
+  opacity: 1;
+  background: var(--accent-soft);
+}
+
 /* ---------- search ---------- */
 
 .search {
@@ -682,6 +766,11 @@ p > img:only-child {
 
 .search[hidden] {
   display: none;
+}
+
+/* Below the tabs when they are shown (tabs are 2.25rem high). */
+:root[data-tabs="on"] .search {
+  top: calc(2.25rem + 0.75rem);
 }
 
 .search__input {
@@ -792,6 +881,12 @@ mark.search-hit--current {
     display: block;
     overflow: visible;
     height: auto;
+  }
+  .reader {
+    display: block;
+  }
+  .tabs {
+    display: none;
   }
   .scroller {
     overflow: visible;

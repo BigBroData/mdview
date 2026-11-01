@@ -22,8 +22,14 @@ export interface Platform {
   assetBase: string;
   /** Shows a file picker and opens the chosen document; absent where impossible. */
   openFile?: () => Promise<Document | null>;
-  /** Opens a document dropped onto the window; absent where impossible. */
-  onFileDropped?: (handler: (path: string) => void) => void;
+  /** Reports documents dropped onto the window; absent where impossible. */
+  onFileDropped?: (handler: (paths: string[]) => void) => void;
+  /** Further documents from the command line the app started with (after the first). */
+  initialPaths?: () => Promise<string[]>;
+  /** Another start of the app handed its documents to this window. */
+  onOpenRequest?: (handler: (paths: string[]) => void) => void;
+  /** Closes the window; absent where the page does not own one. */
+  closeWindow?: () => void;
   /** Opens a document by absolute path (a drop, or Back/Forward in the history). */
   openPath?: (path: string) => Promise<Document | null>;
   /** Opens a document linked from the current one; `href` is relative to it. */
