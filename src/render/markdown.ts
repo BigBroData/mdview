@@ -3,7 +3,9 @@ import hljs from "highlight.js/lib/common";
 import type { MarkdownIt as Renderer } from "markdown-it";
 import MarkdownIt from "markdown-it";
 import { type AssetEnv, assetUrlsPlugin } from "./asset-urls.ts";
+import { frontMatterPlugin } from "./front-matter.ts";
 import { headingIdsPlugin } from "./heading-ids.ts";
+import { mdxPlugin } from "./mdx.ts";
 import { tableColumnsPlugin } from "./table-columns.ts";
 import { taskListsPlugin } from "./task-lists.ts";
 
@@ -14,6 +16,8 @@ import { taskListsPlugin } from "./task-lists.ts";
 export interface RenderOptions {
   /** URL prefix under which relative images of the document are served. */
   assetBase?: string;
+  /** The document is MDX: show module lines and JSX tags instead of escaping them as text. */
+  mdx?: boolean;
 }
 
 // The KaTeX plugin is a CommonJS module with `exports.default`. Bun's runtime
@@ -36,13 +40,15 @@ function highlight(code: string, lang: string): string {
   return ""; // markdown-it escapes the code itself
 }
 
-export function createRenderer(): Renderer {
+export function createRenderer(options: { mdx?: boolean } = {}): Renderer {
   const md = new MarkdownIt({
     html: false, // raw HTML is shown as text; see docs/backlog.md
     linkify: true,
     typographer: false,
     highlight,
   });
+  md.use(frontMatterPlugin);
+  if (options.mdx) md.use(mdxPlugin);
   md.use(katexPlugin, { throwOnError: false, enableFencedBlocks: true });
   md.use(taskListsPlugin);
   md.use(assetUrlsPlugin);
@@ -55,10 +61,15 @@ export function createRenderer(): Renderer {
 }
 
 const shared = createRenderer();
+const sharedMdx = createRenderer({ mdx: true });
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): string {
   const env: AssetEnv = { assetBase: options.assetBase };
-  return shared.render(stripBom(source), env);
+  return (options.mdx ? sharedMdx : shared).render(stripBom(source), env);
+}
+
+export function isMdxName(name: string): boolean {
+  return name.toLowerCase().endsWith(".mdx");
 }
 
 export function stripBom(text: string): string {
