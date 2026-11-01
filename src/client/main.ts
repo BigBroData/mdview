@@ -1,5 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { renderMarkdown } from "../render/markdown.ts";
+import { createHistory, type Entry } from "./history.ts";
+import { classifyLink } from "./links.ts";
 import { createOutline } from "./outline.ts";
 import { createBrowserPlatform } from "./platform/browser.ts";
 import { createTauriPlatform } from "./platform/tauri.ts";
@@ -22,6 +24,9 @@ import {
  * Everything heavy (parsing, math, highlighting) happens here, so the same
  * code runs in the browser stage and inside the Tauri window.
  *
+ * Links: #anchors scroll, links to other Markdown files open in this window
+ * (Alt+Left / Alt+Right go back and forward), web links open in the browser.
+ *
  * Keys: Ctrl+O open · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
@@ -33,12 +38,22 @@ const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlat
 const store = browserStore();
 let settings: Settings = loadSettings(store);
 
+const history = createHistory();
 let lastText: string | null = null;
+let currentPath = "";
 
-function render(document_: Document): void {
-  if (document_.text === lastText) return; // the save did not change the text
+interface RenderOptions {
+  /** Render even if the text is the same as before (a different file). */
+  force?: boolean;
+  /** Where to scroll; default keeps the current position (a reload). */
+  scrollTop?: number;
+}
+
+function render(document_: Document, options: RenderOptions = {}): void {
+  if (!options.force && document_.text === lastText) return; // the save did not change the text
   lastText = document_.text;
-  const scrollTop = scroller.scrollTop;
+  currentPath = document_.path;
+  const scrollTop = options.scrollTop ?? scroller.scrollTop;
   const started = performance.now();
   doc.innerHTML = renderMarkdown(document_.text, { assetBase: platform.assetBase });
   // Synchronous on purpose: requestAnimationFrame does not fire in a hidden
@@ -52,20 +67,95 @@ function render(document_: Document): void {
   console.debug(`mdview: rendered in ${(performance.now() - started).toFixed(1)} ms`);
 }
 
-async function show(load: () => Promise<Document | null>, missingMessage: string): Promise<void> {
+/** Runs a loader and reports failures in the status pill; null means nothing to show. */
+async function load(
+  loader: () => Promise<Document | null>,
+  missingMessage: string,
+): Promise<Document | null> {
   let loaded: Document | null;
   try {
-    loaded = await load();
+    loaded = await loader();
   } catch (error) {
     showStatus(String(error));
-    return;
+    return null;
   }
   if (loaded === null) {
     showStatus(missingMessage);
-    return;
+    return null;
   }
   hideStatus();
-  render(loaded);
+  return loaded;
+}
+
+/** The open document changed on disk: show the new text where the reader is. */
+async function show(loader: () => Promise<Document | null>, missingMessage: string): Promise<void> {
+  const loaded = await load(loader, missingMessage);
+  if (loaded) render(loaded);
+}
+
+/** Moves to another document (a link, the file dialog, a drop) and records it in the history. */
+async function navigate(
+  loader: () => Promise<Document | null>,
+  missingMessage: string,
+  fragment = "",
+): Promise<void> {
+  const loaded = await load(loader, missingMessage);
+  if (!loaded) return;
+  history.saveScroll(scroller.scrollTop);
+  render(loaded, { force: true, scrollTop: 0 });
+  if (fragment) scrollToId(fragment);
+  history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+}
+
+/** Back / forward: same document just scrolls, another one is loaded. */
+async function visit(entry: Entry): Promise<void> {
+  if (entry.path === currentPath || !platform.openPath) {
+    scroller.scrollTop = entry.scrollTop;
+    return;
+  }
+  const openPath = platform.openPath;
+  const loaded = await load(() => openPath(entry.path), `Cannot open ${entry.path}`);
+  if (loaded) render(loaded, { force: true, scrollTop: entry.scrollTop });
+}
+
+function goBack(): void {
+  history.saveScroll(scroller.scrollTop);
+  const entry = history.back();
+  if (entry) void visit(entry);
+}
+
+function goForward(): void {
+  history.saveScroll(scroller.scrollTop);
+  const entry = history.forward();
+  if (entry) void visit(entry);
+}
+
+function scrollToId(id: string): boolean {
+  const target = id === "" ? doc : doc.querySelector(`#${CSS.escape(id)}`);
+  if (!target) return false;
+  if (target === doc) scroller.scrollTop = 0;
+  else target.scrollIntoView({ block: "start" });
+  return true;
+}
+
+function followLink(event: MouseEvent): void {
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+    return;
+  const anchor = (event.target as Element).closest("a[href]");
+  if (!anchor) return;
+  const link = classifyLink(anchor.getAttribute("href") ?? "");
+  event.preventDefault();
+  if (link.kind === "anchor") {
+    history.saveScroll(scroller.scrollTop);
+    if (scrollToId(link.id)) history.push({ path: currentPath, scrollTop: scroller.scrollTop });
+  } else if (link.kind === "document") {
+    const openLink = platform.openLink;
+    if (openLink) {
+      void navigate(() => openLink(link.path), `File not found: ${link.path}`, link.fragment);
+    }
+  } else if (link.kind === "external") {
+    void platform.openExternal?.(link.url);
+  }
 }
 
 function showEmptyState(): void {
@@ -122,13 +212,18 @@ function handleShortcut(event: KeyboardEvent): boolean {
     search.close();
     return true;
   }
+  if (event.altKey && (key === "ArrowLeft" || key === "ArrowRight")) {
+    if (key === "ArrowLeft") goBack();
+    else goForward();
+    return true;
+  }
   if (!ctrl) return false;
   if (!event.shiftKey && key.toLowerCase() === "f") {
     search.open();
     return true;
   }
   if (!event.shiftKey && key.toLowerCase() === "o" && platform.openFile) {
-    void show(platform.openFile, "");
+    void navigate(platform.openFile, "");
     return true;
   }
   if (event.shiftKey && key.toLowerCase() === "w") {
@@ -173,9 +268,18 @@ window.addEventListener("keydown", (event) => {
 if (platform.onFileDropped && platform.openPath) {
   const openPath = platform.openPath;
   platform.onFileDropped((path) => {
-    void show(() => openPath(path), "");
+    void navigate(() => openPath(path), "");
   });
 }
+
+doc.addEventListener("click", followLink);
+// Mouse side buttons, like in a browser.
+window.addEventListener("mouseup", (event) => {
+  if (event.button === 3) goBack();
+  else if (event.button === 4) goForward();
+  else return;
+  event.preventDefault();
+});
 
 let scrollTicking = false;
 scroller.addEventListener(
@@ -202,6 +306,10 @@ void (async () => {
   } catch (error) {
     showStatus(String(error));
   }
-  if (initial) render(initial);
-  else showEmptyState();
+  if (initial) {
+    render(initial);
+    history.push({ path: initial.path, scrollTop: 0 });
+  } else {
+    showEmptyState();
+  }
 })();

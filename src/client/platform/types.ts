@@ -4,7 +4,7 @@
  * in the client is host-independent.
  */
 export interface Document {
-  /** Absolute path on disk (browser stage: the server-side path is not exposed, "" is used). */
+  /** Absolute path on disk. */
   path: string;
   /** File name for the window title. */
   name: string;
@@ -24,8 +24,12 @@ export interface Platform {
   openFile?: () => Promise<Document | null>;
   /** Opens a document dropped onto the window; absent where impossible. */
   onFileDropped?: (handler: (path: string) => void) => void;
-  /** Opens a document by path (used after a drop). */
+  /** Opens a document by absolute path (a drop, or Back/Forward in the history). */
   openPath?: (path: string) => Promise<Document | null>;
+  /** Opens a document linked from the current one; `href` is relative to it. */
+  openLink?: (href: string) => Promise<Document | null>;
+  /** Shows a web link in the user's own browser. */
+  openExternal?: (url: string) => Promise<void>;
   /** Called when the host loses the ability to notify (browser stage: viewer stopped). */
   onConnectionLost?: (handler: (lost: boolean) => void) => void;
 }

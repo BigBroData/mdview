@@ -4,22 +4,33 @@ import type { Document, Platform } from "./types.ts";
 export function createBrowserPlatform(): Platform {
   let lostHandler: ((lost: boolean) => void) | undefined;
 
-  async function fetchDocument(): Promise<Document | null> {
+  async function fetchDocument(open?: string): Promise<Document | null> {
     let response: Response;
     try {
-      response = await fetch("/doc", { cache: "no-store" });
+      const query = open === undefined ? "" : `?open=${encodeURIComponent(open)}`;
+      response = await fetch(`/doc${query}`, { cache: "no-store" });
     } catch {
       lostHandler?.(true);
       return null;
     }
     if (!response.ok) return null;
-    return { path: "", name: document.title, text: await response.text() };
+    return {
+      path: decodeURIComponent(response.headers.get("x-doc-path") ?? ""),
+      name: decodeURIComponent(response.headers.get("x-doc-name") ?? document.title),
+      text: await response.text(),
+    };
   }
 
   return {
     assetBase: "/assets",
-    initial: fetchDocument,
-    reload: fetchDocument,
+    initial: () => fetchDocument(),
+    reload: () => fetchDocument(),
+    openPath: (path) => fetchDocument(path),
+    openLink: (href) => fetchDocument(href),
+    openExternal(url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return Promise.resolve();
+    },
     watch(onChange) {
       const events = new EventSource("/events");
       events.addEventListener("message", (event: MessageEvent<string>) => {
