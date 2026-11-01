@@ -46,11 +46,20 @@
         "name": "Markdown",
         "mimeType": "text/markdown",
         "role": "Viewer"
+      },
+      {
+        "ext": ["mdx"],
+        "name": "MDX",
+        "mimeType": "text/mdx",
+        "role": "Viewer"
       }
     ],
     "linux": {
       "deb": {
-        "desktopTemplate": "./mdview.desktop"
+        "desktopTemplate": "./mdview.desktop",
+        "files": {
+          "/usr/share/mime/packages/mdview.xml": "./mime/mdview.xml"
+        }
       }
     }
   }

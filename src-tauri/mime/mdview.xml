@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Teaches the system that *.mdx is a document type, so it can be opened with mdview. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="text/mdx">
+    <comment>MDX document</comment>
+    <sub-class-of type="text/markdown"/>
+    <glob pattern="*.mdx"/>
+  </mime-type>
+</mime-info>
