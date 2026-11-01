@@ -32,7 +32,7 @@ export function createTauriPlatform(): Platform {
         multiple: false,
         directory: false,
         filters: [
-          { name: "Markdown", extensions: ["md", "markdown", "mdown", "txt"] },
+          { name: "Markdown", extensions: ["md", "markdown", "mdown", "mdx", "txt"] },
           { name: "All files", extensions: ["*"] },
         ],
       });

@@ -1,5 +1,5 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { renderMarkdown } from "../render/markdown.ts";
+import { isMdxName, renderMarkdown } from "../render/markdown.ts";
 import { createHistory, type Entry } from "./history.ts";
 import { classifyLink } from "./links.ts";
 import { createOutline } from "./outline.ts";
@@ -55,7 +55,10 @@ function render(document_: Document, options: RenderOptions = {}): void {
   currentPath = document_.path;
   const scrollTop = options.scrollTop ?? scroller.scrollTop;
   const started = performance.now();
-  doc.innerHTML = renderMarkdown(document_.text, { assetBase: platform.assetBase });
+  doc.innerHTML = renderMarkdown(document_.text, {
+    assetBase: platform.assetBase,
+    mdx: isMdxName(document_.name),
+  });
   // Synchronous on purpose: requestAnimationFrame does not fire in a hidden
   // tab, and the strip must be right whenever the page becomes visible.
   scroller.scrollTop = scrollTop;

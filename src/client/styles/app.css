@@ -149,6 +149,10 @@ blockquote,
   margin: 0 0 1.1em;
 }
 
+:is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 1rem; /* an anchor jump leaves a little air above the heading */
+}
+
 h1,
 h2,
 h3,
@@ -342,6 +346,33 @@ pre > code {
   font-size: 0.86rem;
   background: none;
   padding: 0;
+}
+
+/* MDX module lines, JSX tags and YAML front matter: shown, but quiet */
+pre.mdx-esm,
+pre.front-matter {
+  background: transparent;
+  border: 1px dashed var(--rule-strong);
+  color: var(--fg-muted);
+}
+
+.mdx-tag {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--fg-muted);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: pre-wrap;
+}
+
+.mdx-tag--block {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1em 0;
+  padding: 0.35em 0.7em;
 }
 
 .hljs-comment,
