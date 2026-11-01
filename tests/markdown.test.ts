@@ -8,7 +8,7 @@ const html = renderMarkdown(fixture, { assetBase: "/assets" });
 
 describe("renderMarkdown on the fixture", () => {
   test("headings and GFM tables", () => {
-    expect(html).toContain("<h1>Fixture</h1>");
+    expect(html).toContain('<h1 id="fixture">Fixture</h1>');
     expect(html).toContain('<div class="table-wrap"><table>');
     expect(html).toContain("</table></div>");
     expect(html).toContain('<th class="col-short">a</th>');
@@ -69,7 +69,7 @@ describe("edge cases", () => {
 
   test("BOM is stripped so the first heading still parses", () => {
     expect(stripBom("﻿# Hi")).toBe("# Hi");
-    expect(renderMarkdown("﻿# Hi")).toBe("<h1>Hi</h1>\n");
+    expect(renderMarkdown("﻿# Hi")).toBe('<h1 id="hi">Hi</h1>\n');
   });
 
   test("broken math shows an inline error instead of throwing", () => {
@@ -78,7 +78,7 @@ describe("edge cases", () => {
   });
 
   test("CRLF line endings behave like LF", () => {
-    expect(renderMarkdown("# A\r\n\r\ntext\r\n")).toBe("<h1>A</h1>\n<p>text</p>\n");
+    expect(renderMarkdown("# A\r\n\r\ntext\r\n")).toBe('<h1 id="a">A</h1>\n<p>text</p>\n');
   });
 
   test("a large document renders quickly", () => {
