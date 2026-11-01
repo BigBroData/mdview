@@ -540,8 +540,8 @@ p > img:only-child {
   will-change: transform;
 }
 
-.outline:hover .outline__band,
-.outline--dragging .outline__band {
+.outline--dragging .outline__band,
+.outline:hover .outline__band {
   opacity: 0.14;
 }
 
