@@ -25,6 +25,11 @@ describe("chordKey", () => {
     expect(chordKey({ key: "9", code: "Numpad9" })).toBe("9");
   });
 
+  test("Tab is Tab even when Shift turns it into ISO_Left_Tab", () => {
+    expect(chordKey({ key: "Tab", code: "Tab" })).toBe("Tab");
+    expect(chordKey({ key: "ISO_Left_Tab", code: "Tab" })).toBe("Tab");
+  });
+
   test("other keys keep their name", () => {
     expect(chordKey({ key: "Escape", code: "Escape" })).toBe("Escape");
     expect(chordKey({ key: "F3", code: "F3" })).toBe("F3");
