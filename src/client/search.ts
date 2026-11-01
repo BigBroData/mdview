@@ -128,7 +128,13 @@ export function createSearch(
   }
 
   function clearMarks(): void {
-    for (const group of marks) {
+    // Reset first: if unwrapping fails halfway, the next search must start clean.
+    const old = marks;
+    marks = [];
+    current = -1;
+    total = 0;
+    truncated = false;
+    for (const group of old) {
       for (const mark of group) {
         const parent = mark.parentNode;
         if (!parent) continue;
@@ -136,13 +142,22 @@ export function createSearch(
         parent.normalize();
       }
     }
-    marks = [];
-    current = -1;
-    total = 0;
-    truncated = false;
   }
 
+  /** A failure must show up in the panel, not silently leave a dead search box. */
   function run(query: string): void {
+    try {
+      search(query);
+    } catch (error) {
+      console.error("mdview: search failed", error);
+      total = 0;
+      current = -1;
+      count.textContent = `Search error: ${error instanceof Error ? error.message : String(error)}`;
+      count.classList.add("search__count--none");
+    }
+  }
+
+  function search(query: string): void {
     clearMarks();
     if (query.length === 0) {
       count.textContent = "";
