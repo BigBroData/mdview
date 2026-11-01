@@ -14,7 +14,14 @@
   --font-mono:
     ui-monospace, "Source Code Pro", "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo,
     Consolas, monospace;
-  --text-size: 17px;
+  --text-size: 17px; /* the reader's choice (Ctrl+= / Ctrl+-) */
+  /*
+   * A window wider than 1000px grows the text, up to 8px: the page
+   * scales like a PDF "fit width" instead of leaving a narrow column in the
+   * middle of a big screen. Everything else is in rem, so the column, the
+   * heading strip, the search box and the gutters follow.
+   */
+  --text-fluid: clamp(0px, calc((100vw - 1000px) * 0.006), 8px);
   --text-leading: 1.65;
   --measure: 44rem; /* width of the text column */
   --gutter: 1.5rem;
@@ -79,7 +86,9 @@
 html {
   background: var(--bg);
   color: var(--fg);
-  font: var(--text-size) / var(--text-leading) var(--font-text);
+  font-family: var(--font-text);
+  font-size: calc(var(--text-size) + var(--text-fluid));
+  line-height: var(--text-leading);
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
   height: 100%;
