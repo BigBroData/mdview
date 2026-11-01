@@ -18,6 +18,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 /// Sent to the frontend when the file on disk changes.
 const DOCUMENT_CHANGED: &str = "document-changed";
 
+/// Sent when another `mdview file.md` was started: this window takes the file(s) as tabs.
+const OPEN_REQUEST: &str = "open-request";
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentPayload {
@@ -129,17 +132,55 @@ fn read_document(state: State<'_, AppState>) -> Result<Option<DocumentPayload>, 
     }
 }
 
-/// The file given on the command line (`mdview file.md`, or a double-click in
+/// Files named on a command line, made absolute against the folder the command ran in.
+/// The first element of `args` is the program itself; options are skipped.
+fn document_args(args: &[String], cwd: &Path) -> Vec<String> {
+    args.iter()
+        .skip(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .map(|arg| {
+            let path = Path::new(arg);
+            if path.is_absolute() {
+                arg.clone()
+            } else {
+                cwd.join(path).display().to_string()
+            }
+        })
+        .collect()
+}
+
+fn startup_args() -> Vec<String> {
+    let args: Vec<String> = std::env::args().collect();
+    let cwd = std::env::current_dir().unwrap_or_default();
+    document_args(&args, &cwd)
+}
+
+/// The first file given on the command line (`mdview file.md`, or a double-click in
 /// the file manager via the `.desktop` entry), if any.
 #[tauri::command]
 fn initial_document(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Option<DocumentPayload>, String> {
-    let Some(arg) = std::env::args().skip(1).find(|a| !a.starts_with('-')) else {
+    let Some(first) = startup_args().into_iter().next() else {
         return Ok(None);
     };
-    open_document(app, state, arg).map(Some)
+    open_document(app, state, first).map(Some)
+}
+
+/// Further files from the same command line (a multi-selection in the file manager); they
+/// open as more tabs.
+#[tauri::command]
+fn extra_documents() -> Vec<String> {
+    startup_args().into_iter().skip(1).collect()
+}
+
+/// Closes the window (the last tab was closed); the app ends with it.
+#[tauri::command]
+fn close_window(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.close();
+    }
 }
 
 /// Only web and mail links may be handed to the system; a document must not be
@@ -182,6 +223,19 @@ fn open_external(url: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // First plugin, so a second launch is caught before anything else starts: it hands its
+        // files to the running window as tabs and exits.
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            let paths = document_args(&args, Path::new(&cwd));
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            if !paths.is_empty() {
+                let _ = app.emit(OPEN_REQUEST, paths);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .register_uri_scheme_protocol("mdasset", |ctx, request| {
@@ -211,6 +265,8 @@ pub fn run() {
             open_document,
             read_document,
             initial_document,
+            extra_documents,
+            close_window,
             open_external
         ])
         .run(tauri::generate_context!())
@@ -227,7 +283,28 @@ fn plain(status: StatusCode, message: &str) -> Response<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_openable_link;
+    use super::{document_args, is_openable_link};
+    use std::path::Path;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn command_line_files_become_absolute_paths() {
+        let cwd = Path::new("/home/u/docs");
+        assert_eq!(
+            document_args(&args(&["mdview", "a.md", "/tmp/b.md", "sub/c.mdx"]), cwd),
+            ["/home/u/docs/a.md", "/tmp/b.md", "/home/u/docs/sub/c.mdx"]
+        );
+    }
+
+    #[test]
+    fn the_program_name_and_options_are_not_files() {
+        let cwd = Path::new("/x");
+        assert!(document_args(&args(&["mdview"]), cwd).is_empty());
+        assert_eq!(document_args(&args(&["mdview", "--foo", "a.md"]), cwd), ["/x/a.md"]);
+    }
 
     #[test]
     fn web_and_mail_links_are_allowed() {
