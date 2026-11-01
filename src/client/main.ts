@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { isMdxName, renderMarkdown } from "../render/markdown.ts";
 import { createHistory, type Entry } from "./history.ts";
+import { chordKey } from "./keys.ts";
 import { classifyLink } from "./links.ts";
 import { createOutline } from "./outline.ts";
 import { createBrowserPlatform } from "./platform/browser.ts";
@@ -205,7 +206,7 @@ function changeSettings(change: Partial<Settings>, hint: string): void {
 
 function handleShortcut(event: KeyboardEvent): boolean {
   const ctrl = event.ctrlKey || event.metaKey;
-  const key = event.key;
+  const key = chordKey(event);
   if (key === "F3") {
     if (search.isOpen()) search.step(event.shiftKey ? -1 : 1);
     else search.open();
@@ -221,25 +222,25 @@ function handleShortcut(event: KeyboardEvent): boolean {
     return true;
   }
   if (!ctrl) return false;
-  if (!event.shiftKey && key.toLowerCase() === "f") {
+  if (!event.shiftKey && key === "f") {
     search.open();
     return true;
   }
-  if (!event.shiftKey && key.toLowerCase() === "o" && platform.openFile) {
+  if (!event.shiftKey && key === "o" && platform.openFile) {
     void navigate(platform.openFile, "");
     return true;
   }
-  if (event.shiftKey && key.toLowerCase() === "w") {
+  if (event.shiftKey && key === "w") {
     const width = nextWidth(settings.width);
     changeSettings({ width }, WIDTH_LABEL[width]);
     return true;
   }
-  if (key === "=" || key === "+") {
+  if (key === "+") {
     const zoom = clampZoom(settings.zoom + ZOOM_STEP);
     changeSettings({ zoom }, `Text size: ${zoom}px`);
     return true;
   }
-  if (key === "-" || key === "_") {
+  if (key === "-") {
     const zoom = clampZoom(settings.zoom - ZOOM_STEP);
     changeSettings({ zoom }, `Text size: ${zoom}px`);
     return true;
