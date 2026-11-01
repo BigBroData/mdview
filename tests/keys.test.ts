@@ -19,6 +19,12 @@ describe("chordKey", () => {
     expect(chordKey({ key: "0", code: "Numpad0" })).toBe("0");
   });
 
+  test("digits pick tabs", () => {
+    expect(chordKey({ key: "1", code: "Digit1" })).toBe("1");
+    expect(chordKey({ key: "!", code: "Digit1" })).toBe("1"); // Shift held
+    expect(chordKey({ key: "9", code: "Numpad9" })).toBe("9");
+  });
+
   test("other keys keep their name", () => {
     expect(chordKey({ key: "Escape", code: "Escape" })).toBe("Escape");
     expect(chordKey({ key: "F3", code: "F3" })).toBe("F3");
