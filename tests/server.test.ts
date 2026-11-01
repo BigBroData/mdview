@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type RunningServer, startServer } from "../src/server/server.ts";
@@ -189,3 +189,52 @@ async function rawGet(port: number, path: string): Promise<string> {
     }).catch(reject);
   });
 }
+
+describe("following links between documents", () => {
+  let linkDir: string;
+  let linkServer: RunningServer;
+  const linkGet = (path: string, headers?: Record<string, string>) =>
+    fetch(new URL(path, linkServer.url), { headers });
+
+  beforeAll(async () => {
+    linkDir = await mkdtemp(join(tmpdir(), "mdview-links-"));
+    await writeFile(join(linkDir, "a.md"), "# A\n\n[b](sub/b.md)\n", "utf8");
+    await mkdir(join(linkDir, "sub"));
+    await writeFile(join(linkDir, "sub", "b.md"), "# B\n\n[back](../a.md)\n", "utf8");
+    await writeFile(join(linkDir, "notes.txt"), "not markdown", "utf8");
+    linkServer = await startServer({ file: join(linkDir, "a.md"), port: 0, minify: false });
+  });
+
+  afterAll(async () => {
+    linkServer.stop();
+    await rm(linkDir, { recursive: true, force: true });
+  });
+
+  test("/doc reports the path and name of the document it serves", async () => {
+    const res = await linkGet("/doc");
+    expect(decodeURIComponent(res.headers.get("x-doc-path") ?? "")).toBe(join(linkDir, "a.md"));
+    expect(decodeURIComponent(res.headers.get("x-doc-name") ?? "")).toBe("a.md");
+  });
+
+  test("open= switches to a linked file and resolves further links from there", async () => {
+    const opened = await linkGet("/doc?open=sub%2Fb.md");
+    expect(opened.status).toBe(200);
+    expect(await opened.text()).toContain("# B");
+    expect(decodeURIComponent(opened.headers.get("x-doc-name") ?? "")).toBe("b.md");
+    // now the current folder is sub/, so ../a.md resolves
+    const back = await linkGet("/doc?open=..%2Fa.md");
+    expect(await back.text()).toContain("# A");
+    // a plain /doc shows the file we are on
+    expect(await (await linkGet("/doc")).text()).toContain("# A");
+  });
+
+  test("only Markdown files that exist can be opened", async () => {
+    expect((await linkGet("/doc?open=notes.txt")).status).toBe(400);
+    expect((await linkGet("/doc?open=missing.md")).status).toBe(404);
+  });
+
+  test("a request from another site is refused", async () => {
+    const res = await linkGet("/doc?open=sub%2Fb.md", { "sec-fetch-site": "cross-site" });
+    expect(res.status).toBe(403);
+  });
+});

@@ -1,4 +1,5 @@
 import { basename, dirname, extname, resolve } from "node:path";
+import { isDocumentPath } from "../client/links.ts";
 import { buildClient, KATEX_DIST, readIndexHtml } from "./client-bundle.ts";
 import { resolveAsset } from "./paths.ts";
 import { watchDocument } from "./watch.ts";
@@ -10,6 +11,7 @@ import { watchDocument } from "./watch.ts";
  *   GET /client.js      browser bundle (renderer + live reload)
  *   GET /client.css     application styles
  *   GET /doc            raw Markdown text (UTF-8) — the browser renders it
+ *   GET /doc?open=<p>   switch to another Markdown file (a link followed in the page)
  *   GET /events         Server-Sent Events: "changed" when the file is saved
  *   GET /assets/<path>  files next to the document (images), confined to its folder
  *   GET /vendor/katex/* KaTeX css and fonts
@@ -34,8 +36,8 @@ export interface RunningServer {
 const HEARTBEAT_MS = 15_000;
 
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
-  const file = resolve(options.file);
-  const dir = dirname(file);
+  let file = resolve(options.file);
+  let dir = dirname(file);
   const title = basename(file);
 
   let bundle = await buildClient(options.minify ?? true);
@@ -59,7 +61,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     }
   };
 
-  const stopWatching = watchDocument(file, () => broadcast("changed"));
+  let stopWatching = watchDocument(file, () => broadcast("changed"));
   const heartbeat = setInterval(() => broadcast("ping"), HEARTBEAT_MS);
 
   const server = Bun.serve({
@@ -85,7 +87,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       if (path === "/client.css") {
         return text((await currentBundle()).css, "text/css; charset=utf-8");
       }
-      if (path === "/doc") return serveDocument(file);
+      if (path === "/doc") {
+        const requested = url.searchParams.get("open");
+        if (requested === null) return serveDocument(file);
+        return openDocument(request, requested);
+      }
       if (path === "/events") return serveEvents();
       if (path.startsWith("/assets/")) {
         return serveFile(resolveAsset(dir, path.slice("/assets".length)));
@@ -96,6 +102,24 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       return new Response("Not found", { status: 404 });
     },
   });
+
+  /** Follows a link: the page asks to show another Markdown file. */
+  async function openDocument(request: Request, requested: string): Promise<Response> {
+    // A page of another origin must not be able to steer the viewer.
+    const site = request.headers.get("sec-fetch-site");
+    if (site !== null && site !== "same-origin") return new Response("Forbidden", { status: 403 });
+    const target = resolve(dir, requested);
+    if (!isDocumentPath(target)) return new Response("Not a Markdown file", { status: 400 });
+    if (!(await Bun.file(target).exists()))
+      return new Response("Document not found", { status: 404 });
+    if (target !== file) {
+      stopWatching();
+      file = target;
+      dir = dirname(file);
+      stopWatching = watchDocument(file, () => broadcast("changed"));
+    }
+    return serveDocument(file);
+  }
 
   function serveEvents(): Response {
     let own: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -148,7 +172,10 @@ async function serveDocument(file: string): Promise<Response> {
   // Non-UTF-8 bytes become U+FFFD instead of failing: the user still sees the text.
   const bytes = await handle.bytes();
   const content = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  return text(content, "text/markdown; charset=utf-8");
+  const response = text(content, "text/markdown; charset=utf-8");
+  response.headers.set("x-doc-path", encodeURIComponent(file));
+  response.headers.set("x-doc-name", encodeURIComponent(basename(file)));
+  return response;
 }
 
 const MIME: Record<string, string> = {
