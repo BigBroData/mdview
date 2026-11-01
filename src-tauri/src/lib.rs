@@ -142,6 +142,43 @@ fn initial_document(
     open_document(app, state, arg).map(Some)
 }
 
+/// Only web and mail links may be handed to the system; a document must not be
+/// able to start arbitrary programs or open `file:` URLs through a link.
+fn is_openable_link(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+}
+
+/// Shows a link of the document in the user's default browser or mail client.
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    let url = url.trim().to_owned();
+    if !is_openable_link(&url) {
+        return Err(format!("refusing to open {url}"));
+    }
+    #[cfg(target_os = "linux")]
+    let mut command = std::process::Command::new("xdg-open");
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    };
+    let mut child = command
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("cannot open {url}: {e}"))?;
+    // Reap the helper so it does not linger as a zombie.
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -173,7 +210,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_document,
             read_document,
-            initial_document
+            initial_document,
+            open_external
         ])
         .run(tauri::generate_context!())
         .expect("error while running mdview");
@@ -185,4 +223,25 @@ fn plain(status: StatusCode, message: &str) -> Response<Vec<u8>> {
         .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
         .body(message.as_bytes().to_vec())
         .expect("static response")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_openable_link;
+
+    #[test]
+    fn web_and_mail_links_are_allowed() {
+        assert!(is_openable_link("https://example.com/a?b=c#d"));
+        assert!(is_openable_link("HTTP://example.com"));
+        assert!(is_openable_link("mailto:someone@example.com"));
+    }
+
+    #[test]
+    fn everything_else_is_refused() {
+        assert!(!is_openable_link("file:///etc/passwd"));
+        assert!(!is_openable_link("javascript:alert(1)"));
+        assert!(!is_openable_link("--help"));
+        assert!(!is_openable_link("/usr/bin/true"));
+        assert!(!is_openable_link(""));
+    }
 }
