@@ -31,6 +31,7 @@ import {
   type Theme,
 } from "./themes.ts";
 import { BUILTIN_THEMES } from "./themes-builtin.ts";
+import { createToc } from "./toc.ts";
 
 /**
  * The page: render a document, re-render when the host says it changed,
@@ -48,13 +49,14 @@ import { BUILTIN_THEMES } from "./themes-builtin.ts";
  * Themes: CSS files in ~/.config/mdview/themes redefine the colour tokens; Ctrl+Shift+T
  * opens the switcher (docs/themes.md).
  *
- * Keys: Ctrl+O open · Ctrl+W close tab · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
+ * Keys: Ctrl+O open · Ctrl+W close tab · Ctrl+F find · Ctrl+Shift+O contents panel · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
 const scroller = mustFind("scroller");
 const status = mustFind("status");
 const outline = createOutline(mustFind("outline"), doc, scroller);
 const search = createSearch(mustFind("search"), doc, scroller, outline);
+const toc = createToc(mustFind("toc"), doc, scroller, (id) => jumpToAnchor(id));
 const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlatform();
 const store = browserStore();
 let settings: Settings = loadSettings(store);
@@ -99,6 +101,7 @@ function render(document_: Document, options: RenderOptions = {}): void {
   // tab, and the strip must be right whenever the page becomes visible.
   scroller.scrollTop = scrollTop;
   outline.update();
+  toc.update();
   search.refresh(); // the old <mark>s went away with the old HTML
   // Keyboard scrolling (PgDn, Space, arrows) goes to the focused scroller.
   if (document.activeElement === document.body) scroller.focus({ preventScroll: true });
@@ -268,6 +271,13 @@ function scrollToId(id: string): boolean {
   return true;
 }
 
+/** Scrolls to a heading and records the jump, so Alt+Left comes back to where the reader was. */
+function jumpToAnchor(id: string): void {
+  const history = activeHistory();
+  history?.saveScroll(scroller.scrollTop);
+  if (scrollToId(id)) history?.push({ path: currentPath, scrollTop: scroller.scrollTop });
+}
+
 /** A click on a link; with `inNewTab` (Ctrl+click, middle button) a document link opens as a tab. */
 function followLink(event: MouseEvent, inNewTab: boolean): void {
   const anchor = (event.target as Element).closest("a[href]");
@@ -275,9 +285,7 @@ function followLink(event: MouseEvent, inNewTab: boolean): void {
   const link = classifyLink(anchor.getAttribute("href") ?? "");
   event.preventDefault();
   if (link.kind === "anchor") {
-    const history = activeHistory();
-    history?.saveScroll(scroller.scrollTop);
-    if (scrollToId(link.id)) history?.push({ path: currentPath, scrollTop: scroller.scrollTop });
+    jumpToAnchor(link.id);
   } else if (link.kind === "document") {
     const openLink = platform.openLink;
     if (!openLink) return;
@@ -374,8 +382,10 @@ const WIDTH_LABEL = { column: "Width: column", wide: "Width: wide", full: "Width
 function applySettings(): void {
   document.documentElement.dataset.width = settings.width;
   document.documentElement.style.setProperty("--text-size", `${settings.zoom}px`);
+  toc.setVisible(settings.toc);
   saveSettings(store, settings);
   outline.update(); // heading positions change with width and size
+  toc.update();
 }
 
 function changeSettings(change: Partial<Settings>, hint: string): void {
@@ -429,6 +439,10 @@ function handleShortcut(event: KeyboardEvent): boolean {
     const target = key === "9" ? tabs.all().at(-1) : tabs.at(Number(key) - 1);
     if (target) serial(() => switchTo(target.id));
     return target !== undefined;
+  }
+  if (event.shiftKey && key === "o") {
+    changeSettings({ toc: !settings.toc }, settings.toc ? "Contents: hidden" : "Contents: shown");
+    return true;
   }
   if (event.shiftKey && key === "t") {
     if (themePicker.isOpen()) themePicker.close();
@@ -502,6 +516,7 @@ scroller.addEventListener(
     scrollTicking = true;
     requestAnimationFrame(() => {
       outline.track();
+      toc.track();
       scrollTicking = false;
     });
   },
@@ -509,8 +524,12 @@ scroller.addEventListener(
 );
 
 // Images loading and window resizes move the headings; keep the strip honest.
-new ResizeObserver(() => outline.update()).observe(doc);
-window.addEventListener("resize", () => outline.update());
+const relayout = () => {
+  outline.update();
+  toc.update();
+};
+new ResizeObserver(relayout).observe(doc);
+window.addEventListener("resize", relayout);
 
 void (async () => {
   let initial: Document | null = null;

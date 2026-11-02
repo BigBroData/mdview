@@ -855,6 +855,73 @@ mark.search-hit--current {
   background: var(--accent);
 }
 
+/* ---------- contents panel ---------- */
+
+/* Optional (Ctrl+Shift+O); left of the text, never over it. */
+.toc {
+  position: relative;
+  flex: 0 0 16rem;
+  width: 16rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 1.25rem 0.5rem 2rem 0.75rem;
+  border-right: 1px solid var(--rule);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.toc[hidden] {
+  display: none;
+}
+
+.toc__item {
+  display: block;
+  padding: 0.25rem 0.5rem;
+  border-left: 2px solid transparent;
+  border-radius: 0 0.3rem 0.3rem 0;
+  color: var(--fg-muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toc__item:hover {
+  color: var(--fg);
+  background: var(--accent-soft);
+}
+
+.toc__item--d1 {
+  padding-left: 1.4rem;
+}
+
+.toc__item--d2 {
+  padding-left: 2.3rem;
+}
+
+.toc__item--d3 {
+  padding-left: 3.2rem;
+}
+
+.toc .toc__item--current {
+  color: var(--fg);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.toc__empty {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--fg-muted);
+}
+
+/* Too narrow for a column beside the text. */
+@media (max-width: 640px) {
+  .toc {
+    display: none;
+  }
+}
+
 /* ---------- theme switcher ---------- */
 
 .themes {
@@ -965,7 +1032,8 @@ mark.search-hit--current {
   .reader {
     display: block;
   }
-  .tabs {
+  .tabs,
+  .toc {
     display: none;
   }
   .scroller {
