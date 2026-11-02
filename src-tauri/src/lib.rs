@@ -6,6 +6,7 @@
 //! open from the command line (which is how GNOME passes a double-clicked file).
 
 mod assets;
+mod themes;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -267,7 +268,8 @@ pub fn run() {
             initial_document,
             extra_documents,
             close_window,
-            open_external
+            open_external,
+            themes::list_themes
         ])
         .run(tauri::generate_context!())
         .expect("error while running mdview");

@@ -2,6 +2,7 @@ import { basename, dirname, extname, resolve } from "node:path";
 import { isDocumentPath } from "../client/links.ts";
 import { buildClient, KATEX_DIST, readIndexHtml } from "./client-bundle.ts";
 import { resolveAsset } from "./paths.ts";
+import { listThemes, themesDir } from "./themes.ts";
 import { watchDocument } from "./watch.ts";
 
 /**
@@ -12,6 +13,7 @@ import { watchDocument } from "./watch.ts";
  *   GET /client.css     application styles
  *   GET /doc            raw Markdown text (UTF-8) — the browser renders it
  *   GET /doc?open=<p>   switch to another Markdown file (a link followed in the page)
+ *   GET /themes         the user's theme files (~/.config/mdview/themes/*.css) as JSON
  *   GET /events         Server-Sent Events: "changed" when the file is saved
  *   GET /assets/<path>  files next to the document (images), confined to its folder
  *   GET /vendor/katex/* KaTeX css and fonts
@@ -23,6 +25,8 @@ export interface ServerOptions {
   minify?: boolean;
   /** Rebuild the client on every request — for working on mdview itself. */
   dev?: boolean;
+  /** Folder with the user's theme files; default `~/.config/mdview/themes`. */
+  themesDir?: string;
 }
 
 export interface RunningServer {
@@ -92,6 +96,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         if (requested === null) return serveDocument(file);
         return openDocument(request, requested);
       }
+      if (path === "/themes") return serveThemes(request);
       if (path === "/events") return serveEvents();
       if (path.startsWith("/assets/")) {
         return serveFile(resolveAsset(dir, path.slice("/assets".length)));
@@ -119,6 +124,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       stopWatching = watchDocument(file, () => broadcast("changed"));
     }
     return serveDocument(file);
+  }
+
+  async function serveThemes(request: Request): Promise<Response> {
+    const site = request.headers.get("sec-fetch-site");
+    if (site !== null && site !== "same-origin") return new Response("Forbidden", { status: 403 });
+    const list = await listThemes(options.themesDir ?? themesDir());
+    return text(JSON.stringify(list), "application/json; charset=utf-8");
   }
 
   function serveEvents(): Response {
