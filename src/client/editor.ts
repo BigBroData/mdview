@@ -3,7 +3,13 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { search, searchKeymap } from "@codemirror/search";
 import { EditorState, Transaction } from "@codemirror/state";
-import { drawSelection, EditorView, keymap, runScopeHandlers } from "@codemirror/view";
+import {
+  drawSelection,
+  EditorView,
+  highlightActiveLine,
+  keymap,
+  runScopeHandlers,
+} from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
 /**
@@ -75,23 +81,69 @@ const theme = EditorView.theme({
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--fg)", borderLeftWidth: "2px" },
   ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground":
     { backgroundColor: "var(--selection)" },
+  // A faint band under the caret's line: enough to find the place, quiet in every theme.
+  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--fg) 5%, transparent)" },
   ".cm-panels": {
     backgroundColor: "var(--surface)",
     color: "var(--surface-ink)",
-    borderColor: "var(--rule-strong)",
+    borderColor: "var(--rule)",
     fontFamily: "var(--font-text)",
   },
-  ".cm-panels-top": { borderBottom: "1px solid var(--rule-strong)" },
+  ".cm-panels-top": { borderBottom: "1px solid var(--rule)" },
+  // Find and replace as one tidy bar: fields and quiet buttons on a row, the options
+  // under them, the close mark at the corner.
+  ".cm-panel.cm-search": {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "0.4rem 0.45rem",
+    padding: "0.55rem 2.4rem 0.55rem 1rem",
+    fontSize: "0.85rem",
+  },
+  ".cm-panel.cm-search br": { flexBasis: "100%", height: "0", margin: "0" },
   ".cm-panel.cm-search input, .cm-panel.cm-search button": {
     fontFamily: "inherit",
-    fontSize: "0.85rem",
+    fontSize: "inherit",
     color: "var(--fg)",
     backgroundColor: "var(--bg)",
     border: "1px solid var(--rule-strong)",
     borderRadius: "0.35rem",
+    margin: "0",
   },
-  ".cm-panel.cm-search button": { backgroundImage: "none", cursor: "pointer" },
-  ".cm-panel.cm-search label": { fontSize: "0.8rem" },
+  ".cm-panel.cm-search input[type=text], .cm-panel.cm-search input:not([type])": {
+    padding: "0.3rem 0.6rem",
+    width: "11rem",
+  },
+  ".cm-panel.cm-search input:focus": { outline: "none", borderColor: "var(--accent)" },
+  ".cm-panel.cm-search button": {
+    padding: "0.3rem 0.7rem",
+    backgroundImage: "none",
+    cursor: "pointer",
+  },
+  ".cm-panel.cm-search button:hover": {
+    backgroundColor: "var(--surface)",
+    borderColor: "var(--fg-muted)",
+  },
+  ".cm-panel.cm-search button[name=close]": {
+    position: "absolute",
+    top: "0.45rem",
+    right: "0.6rem",
+    padding: "0 0.4rem",
+    border: "none",
+    backgroundColor: "transparent",
+    color: "var(--fg-muted)",
+    fontSize: "1.25rem",
+    lineHeight: "1.6",
+  },
+  ".cm-panel.cm-search label": {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.3rem",
+    padding: "0 0.4rem 0 0",
+    fontSize: "0.8rem",
+    color: "var(--fg-muted)",
+  },
+  ".cm-panel.cm-search label input": { margin: "0", accentColor: "var(--accent)" },
   ".cm-searchMatch": { backgroundColor: "var(--mark)" },
   ".cm-searchMatch.cm-searchMatch-selected": {
     backgroundColor: "var(--accent)",
@@ -126,6 +178,7 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
   const extensions = [
     history(),
     drawSelection(),
+    highlightActiveLine(),
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(markdownHighlight),
     search({ top: true }),
