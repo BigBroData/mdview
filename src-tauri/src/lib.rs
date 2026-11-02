@@ -80,6 +80,36 @@ fn payload_for(path: &Path) -> Result<DocumentPayload, String> {
     })
 }
 
+/// Whether a file-system event can mean the text changed. Opening, reading and
+/// closing a file for reading, and attribute changes (the access time moves when
+/// the file is read) do not: the shell reads the document itself on every reload,
+/// so counting them would make it reload forever.
+fn is_content_event(kind: &notify::EventKind) -> bool {
+    use notify::event::{AccessKind, AccessMode, ModifyKind};
+    use notify::EventKind;
+    match kind {
+        EventKind::Create(_) | EventKind::Remove(_) => true,
+        EventKind::Modify(ModifyKind::Metadata(_)) => false,
+        EventKind::Modify(_) => true,
+        // The end of a write; the plain modify events can arrive before it is complete.
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
+        _ => false,
+    }
+}
+
+/// Writes name the changed file itself, so they are matched against the document's
+/// name; the rest (create, remove, rename) may be the temp-file half of a save.
+fn names_the_file(kind: &notify::EventKind) -> bool {
+    use notify::event::{AccessKind, AccessMode, ModifyKind};
+    use notify::EventKind;
+    matches!(
+        kind,
+        EventKind::Modify(ModifyKind::Data(_))
+            | EventKind::Modify(ModifyKind::Any)
+            | EventKind::Access(AccessKind::Close(AccessMode::Write))
+    )
+}
+
 /// Watches the document's *folder* (editors such as gedit save by writing a
 /// temp file and renaming it over the original, which blinds a file watcher)
 /// and emits `document-changed` for events that concern the file.
@@ -88,11 +118,13 @@ fn watch(app: AppHandle, path: &Path) -> Result<RecommendedWatcher, String> {
     let name = path.file_name().map(|n| n.to_os_string());
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
         let Ok(event) = result else { return };
-        // Data changes name the file; renames, creates and removes may be the
+        if !is_content_event(&event.kind) {
+            return;
+        }
+        // Writes name the file; renames, creates and removes may be the
         // temp-file half of an atomic save, so they always count. The page
         // drops reloads whose text did not change.
-        let is_data_change = matches!(event.kind, notify::EventKind::Modify(notify::event::ModifyKind::Data(_)));
-        let concerns_file = !is_data_change
+        let concerns_file = !names_the_file(&event.kind)
             || event.paths.is_empty()
             || event
                 .paths
@@ -338,8 +370,40 @@ fn plain(status: StatusCode, message: &str) -> Response<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{document_args, is_openable_link};
+    use super::{document_args, is_content_event, is_openable_link, names_the_file};
+    use notify::event::{
+        AccessKind, AccessMode, CreateKind, DataChange, MetadataKind, ModifyKind, RemoveKind,
+        RenameMode,
+    };
+    use notify::EventKind;
     use std::path::Path;
+
+    #[test]
+    fn reading_a_file_is_not_a_change() {
+        // These are what the shell itself causes by reading the document: they must not reload it.
+        assert!(!is_content_event(&EventKind::Access(AccessKind::Open(AccessMode::Any))));
+        assert!(!is_content_event(&EventKind::Access(AccessKind::Read)));
+        assert!(!is_content_event(&EventKind::Access(AccessKind::Close(AccessMode::Read))));
+        assert!(!is_content_event(&EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))));
+    }
+
+    #[test]
+    fn writes_creates_and_renames_are_changes() {
+        assert!(is_content_event(&EventKind::Modify(ModifyKind::Data(DataChange::Any))));
+        assert!(is_content_event(&EventKind::Modify(ModifyKind::Name(RenameMode::To))));
+        assert!(is_content_event(&EventKind::Access(AccessKind::Close(AccessMode::Write))));
+        assert!(is_content_event(&EventKind::Create(CreateKind::File)));
+        assert!(is_content_event(&EventKind::Remove(RemoveKind::File)));
+    }
+
+    #[test]
+    fn only_writes_are_matched_by_file_name() {
+        assert!(names_the_file(&EventKind::Modify(ModifyKind::Data(DataChange::Any))));
+        assert!(names_the_file(&EventKind::Access(AccessKind::Close(AccessMode::Write))));
+        // a rename or create may be the temp file that replaces the document
+        assert!(!names_the_file(&EventKind::Modify(ModifyKind::Name(RenameMode::To))));
+        assert!(!names_the_file(&EventKind::Create(CreateKind::File)));
+    }
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
