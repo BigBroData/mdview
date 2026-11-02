@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { resolveRelative } from "../links.ts";
+import type { ThemeList } from "../themes.ts";
 import { debounce, tauriAssetBase } from "./asset-base.ts";
 import type { Document, Platform } from "./types.ts";
 
@@ -21,6 +22,7 @@ export function createTauriPlatform(): Platform {
     reload: () => invoke<Document | null>("read_document").then(track),
     openLink: (href) => openPath(resolveRelative(currentPath, href)),
     openExternal: (url) => invoke<void>("open_external", { url }),
+    loadThemes: () => invoke<ThemeList>("list_themes"),
     initialPaths: () => invoke<string[]>("extra_documents"),
     closeWindow: () => void invoke<void>("close_window"),
     onOpenRequest(handler) {

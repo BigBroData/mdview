@@ -20,6 +20,17 @@ import {
 } from "./settings.ts";
 import { createTabBar } from "./tabbar.ts";
 import { createTabs, type Tab } from "./tabs.ts";
+import { createThemePicker } from "./themepicker.ts";
+import {
+  displayName,
+  findTheme,
+  loadThemeCache,
+  mergeThemes,
+  SYSTEM_THEME,
+  saveThemeCache,
+  type Theme,
+} from "./themes.ts";
+import { BUILTIN_THEMES } from "./themes-builtin.ts";
 
 /**
  * The page: render a document, re-render when the host says it changed,
@@ -33,6 +44,9 @@ import { createTabs, type Tab } from "./tabs.ts";
  * Tabs: Ctrl+O, a drop, a second start of the app and Ctrl+click on a link open a document
  * in a tab of this window; every tab has its own history. Ctrl+W closes, Ctrl+Tab and
  * Ctrl+1..9 switch. Only the active tab is watched for changes (the host holds one document).
+ *
+ * Themes: CSS files in ~/.config/mdview/themes redefine the colour tokens; Ctrl+Shift+T
+ * opens the switcher (docs/themes.md).
  *
  * Keys: Ctrl+O open · Ctrl+W close tab · Ctrl+F find · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
@@ -305,6 +319,56 @@ function mustFind(id: string): HTMLElement {
 
 // --- reader settings --------------------------------------------------------
 
+// --- themes -----------------------------------------------------------------
+
+/** One <style> element carries the active theme; it comes last, so it wins over app.css. */
+const themeStyle = document.createElement("style");
+themeStyle.id = "theme-css";
+themeStyle.textContent = loadThemeCache(store); // paint the last theme at once, before the host answers
+document.head.append(themeStyle);
+
+let themes: Theme[] = mergeThemes(BUILTIN_THEMES, []);
+let themeDir = "";
+
+/** Shows a theme (the empty name is the app's own colours); does not remember it. */
+function showTheme(name: string): string {
+  const theme = name === SYSTEM_THEME ? undefined : findTheme(themes, name);
+  const css = theme?.css ?? "";
+  if (themeStyle.textContent !== css) themeStyle.textContent = css;
+  if (theme) document.documentElement.dataset.theme = theme.name;
+  else delete document.documentElement.dataset.theme;
+  return css;
+}
+
+/** Reads the theme files again, so a file the user or an agent just wrote shows up. */
+async function refreshThemes(): Promise<void> {
+  try {
+    const list = await platform.loadThemes?.();
+    themes = mergeThemes(BUILTIN_THEMES, list?.themes ?? []);
+    themeDir = list?.dir ?? "";
+  } catch (error) {
+    console.error("mdview: cannot read themes", error);
+  }
+  if (!themePicker.isOpen()) saveThemeCache(store, showTheme(settings.theme));
+}
+
+const themePicker = createThemePicker(mustFind("themes"), {
+  refresh: refreshThemes,
+  themes: () => themes,
+  dir: () => themeDir,
+  current: () => settings.theme,
+  preview: (name) => void showTheme(name),
+  choose(name) {
+    settings = { ...settings, theme: name };
+    saveSettings(store, settings);
+    saveThemeCache(store, showTheme(name));
+    showStatus(`Theme: ${displayName(name)}`, 1200);
+    scroller.focus({ preventScroll: true });
+  },
+});
+
+// --- reader settings --------------------------------------------------------
+
 const WIDTH_LABEL = { column: "Width: column", wide: "Width: wide", full: "Width: full" } as const;
 
 function applySettings(): void {
@@ -366,6 +430,11 @@ function handleShortcut(event: KeyboardEvent): boolean {
     if (target) serial(() => switchTo(target.id));
     return target !== undefined;
   }
+  if (event.shiftKey && key === "t") {
+    if (themePicker.isOpen()) themePicker.close();
+    else void themePicker.open();
+    return true;
+  }
   if (event.shiftKey && key === "w") {
     const width = nextWidth(settings.width);
     changeSettings({ width }, WIDTH_LABEL[width]);
@@ -391,6 +460,9 @@ function handleShortcut(event: KeyboardEvent): boolean {
 // --- wiring ---------------------------------------------------------------
 
 applySettings();
+void refreshThemes();
+// Back from the editor where the theme file was just changed: pick the change up.
+window.addEventListener("focus", () => void refreshThemes());
 
 platform.onConnectionLost?.((lost) => {
   if (lost) showStatus("Connection to viewer lost — reconnecting…");

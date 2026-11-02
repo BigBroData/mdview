@@ -3,6 +3,8 @@
  * (`browser.ts`) and the Tauri desktop shell (`tauri.ts`). Everything else
  * in the client is host-independent.
  */
+import type { ThemeList } from "../themes.ts";
+
 export interface Document {
   /** Absolute path on disk. */
   path: string;
@@ -36,6 +38,8 @@ export interface Platform {
   openLink?: (href: string) => Promise<Document | null>;
   /** Shows a web link in the user's own browser. */
   openExternal?: (url: string) => Promise<void>;
+  /** The user's theme files and where they live. */
+  loadThemes?: () => Promise<ThemeList>;
   /** Called when the host loses the ability to notify (browser stage: viewer stopped). */
   onConnectionLost?: (handler: (lost: boolean) => void) => void;
 }

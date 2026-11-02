@@ -32,6 +32,7 @@
   --fg-muted: #6a7076;
   --accent: #2a66c4;
   --accent-soft: rgba(42, 102, 196, 0.12);
+  --on-accent: #fff; /* text on an accent-coloured fill (the current search hit) */
   --rule: #e4e6e8;
   --rule-strong: #c9cdd1;
   --surface: #f3f4f5;
@@ -830,7 +831,7 @@ mark.search-hit {
 
 mark.search-hit--current {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: 0 0 0 2px var(--accent);
 }
 
@@ -852,6 +853,85 @@ mark.search-hit--current {
   margin-top: -0.15rem;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* ---------- theme switcher ---------- */
+
+.themes {
+  position: absolute;
+  top: 0.75rem;
+  right: 2.5rem;
+  width: 17rem;
+  max-width: calc(100vw - 3rem);
+  padding: 0.4rem;
+  border-radius: 0.9rem;
+  background: var(--surface);
+  color: var(--surface-ink);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 0.9rem;
+  z-index: 20;
+  outline: none;
+  user-select: none;
+}
+
+.themes[hidden] {
+  display: none;
+}
+
+:root[data-tabs="on"] .themes {
+  top: calc(2.25rem + 0.75rem);
+}
+
+.themes__title {
+  padding: 0.25rem 0.6rem;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.themes__list {
+  max-height: 18rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.themes__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  cursor: default;
+}
+
+.themes__item:hover {
+  background: var(--accent-soft);
+}
+
+.themes .themes__item--selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.themes__tag {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.themes .themes__item--selected .themes__tag {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.themes__hint {
+  padding: 0.4rem 0.6rem 0.2rem;
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- status pill ---------- */
@@ -899,7 +979,8 @@ mark.search-hit--current {
     max-width: none;
   }
   .status,
-  .search {
+  .search,
+  .themes {
     display: none;
   }
   pre {

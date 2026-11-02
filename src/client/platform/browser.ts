@@ -1,3 +1,4 @@
+import type { ThemeList } from "../themes.ts";
 import type { Document, Platform } from "./types.ts";
 
 /** Browser stage: the Bun server serves the document and pushes change events. */
@@ -27,6 +28,11 @@ export function createBrowserPlatform(): Platform {
     reload: () => fetchDocument(),
     openPath: (path) => fetchDocument(path),
     openLink: (href) => fetchDocument(href),
+    async loadThemes() {
+      const response = await fetch("/themes", { cache: "no-store" });
+      if (!response.ok) throw new Error(`themes: ${response.status}`);
+      return (await response.json()) as ThemeList;
+    },
     openExternal(url) {
       window.open(url, "_blank", "noopener,noreferrer");
       return Promise.resolve();
