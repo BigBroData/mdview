@@ -596,20 +596,21 @@ p > img:only-child {
   margin-top: 2.6rem;
   padding-top: 1.4rem;
   border-top: 1px solid var(--rule);
-  column-count: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   column-gap: 3.5rem;
+  align-items: start;
   text-align: left;
 }
 
 @media (max-width: 720px) {
   .start__groups {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 }
 
 .start__group {
-  break-inside: avoid;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.4rem;
 }
 
 .start .start__title {
@@ -632,9 +633,10 @@ p > img:only-child {
 .start__rows dt,
 .start__rows dd {
   margin: 0;
-  padding: 0.4rem 0;
+  padding: 0.34rem 0;
   border-bottom: 1px solid var(--rule);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 
 .start__rows dd {
@@ -645,7 +647,7 @@ p > img:only-child {
 .start__keys {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .start__combo {

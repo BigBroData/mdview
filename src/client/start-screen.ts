@@ -131,8 +131,11 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
     root.append(drop);
   }
 
+  // Two columns, each group goes to the one with fewer rows so they end at about the same height.
   const list = document.createElement("div");
   list.className = "start__groups";
+  const columns = [document.createElement("div"), document.createElement("div")];
+  const rowCount = [0, 0];
   for (const group of commandGroups(caps)) {
     const section = document.createElement("section");
     section.className = "start__group";
@@ -149,8 +152,11 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
       rows.append(term, keys);
     }
     section.append(title, rows);
-    list.append(section);
+    const side = (rowCount[0] ?? 0) <= (rowCount[1] ?? 0) ? 0 : 1;
+    rowCount[side] = (rowCount[side] ?? 0) + group.commands.length + 1;
+    columns[side]?.append(section);
   }
+  for (const column of columns) if (column.childElementCount > 0) list.append(column);
   root.append(list);
   return root;
 }
