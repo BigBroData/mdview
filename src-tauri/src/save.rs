@@ -87,6 +87,72 @@ pub fn write_document(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(&path, &bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
+/// The path of a file the user named in a save dialog: it must carry a Markdown or
+/// text extension and live in a folder that exists. Returned with the folder made
+/// canonical, so it compares equal to the paths the viewer opens documents by.
+fn checked_target(path: &Path) -> Result<PathBuf, String> {
+    if !is_editable_path(path) {
+        return Err(format!(
+            "{} must end in .md, .markdown, .mdown, .mdx or .txt",
+            path.display()
+        ));
+    }
+    let name = path
+        .file_name()
+        .ok_or_else(|| format!("no file name in {}", path.display()))?;
+    let folder = match path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    let folder = folder
+        .canonicalize()
+        .map_err(|e| format!("folder not found: {e}"))?;
+    if !folder.is_dir() {
+        return Err(format!("not a folder: {}", folder.display()));
+    }
+    Ok(folder.join(name))
+}
+
+fn create_new(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    // `create_new` fails if anything is there, a dangling symlink included.
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format!("{} already exists", path.display())
+            } else {
+                format!("cannot create {}: {e}", path.display())
+            }
+        })?;
+    file.write_all(bytes)
+        .map_err(|e| format!("cannot write {}: {e}", path.display()))
+}
+
+/// "New file": makes an empty file that must not exist yet; returns its path.
+pub fn create_document(path: &Path) -> Result<PathBuf, String> {
+    let target = checked_target(path)?;
+    create_new(&target, b"")?;
+    Ok(target)
+}
+
+/// "Save as": writes the text to the named file, creating it. An existing file is
+/// replaced only by the same rules as an ordinary save (writable, Markdown or text);
+/// the save dialog has already asked the user whether to replace it.
+pub fn write_document_as(path: &Path, text: &str) -> Result<PathBuf, String> {
+    let target = checked_target(path)?;
+    if std::fs::symlink_metadata(&target).is_ok() {
+        write_document(&target, text)?;
+        return target
+            .canonicalize()
+            .map_err(|e| format!("file not found: {e}"));
+    }
+    create_new(&target, &encode(text, false))?;
+    Ok(target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,6 +185,55 @@ mod tests {
     fn bom_is_kept_only_if_the_file_had_one() {
         assert_eq!(encode("a", false), b"a");
         assert_eq!(encode("a", true), [0xEF, 0xBB, 0xBF, b'a']);
+    }
+
+    #[test]
+    fn a_new_file_is_created_empty_and_never_replaces_one() {
+        let dir = scratch("create");
+        let file = dir.join("fresh.md");
+        let made = create_document(&file).unwrap();
+        assert_eq!(made, dir.canonicalize().unwrap().join("fresh.md"));
+        assert_eq!(std::fs::read(&file).unwrap(), b"");
+
+        std::fs::write(&file, "keep me").unwrap();
+        assert!(create_document(&file).unwrap_err().contains("already exists"));
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "keep me");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn new_files_need_a_markdown_name_and_an_existing_folder() {
+        let dir = scratch("names");
+        assert!(create_document(&dir.join("notes.rs")).is_err());
+        assert!(create_document(&dir.join("notes")).is_err());
+        assert!(create_document(&dir.join("no-such-folder").join("a.md")).is_err());
+        assert!(write_document_as(&dir.join("script.sh"), "x").is_err());
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_as_creates_a_file_and_replaces_an_existing_one_by_the_ordinary_rules() {
+        let dir = scratch("saveas");
+        let copy = dir.join("copy.md");
+        write_document_as(&copy, "# one\n").unwrap();
+        assert_eq!(std::fs::read(&copy).unwrap(), b"# one\n");
+
+        std::fs::write(&copy, [&BOM[..], b"old"].concat()).unwrap();
+        write_document_as(&copy, "# two\n").unwrap();
+        assert_eq!(std::fs::read(&copy).unwrap(), [&BOM[..], b"# two\n"].concat());
+
+        let ro = dir.join("ro.md");
+        std::fs::write(&ro, "keep").unwrap();
+        let mut perms = std::fs::metadata(&ro).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&ro, perms).unwrap();
+        assert!(write_document_as(&ro, "x").is_err());
+        assert_eq!(std::fs::read_to_string(&ro).unwrap(), "keep");
+
+        let leftovers = std::fs::read_dir(&dir).unwrap().count();
+        assert_eq!(leftovers, 2);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -154,6 +154,20 @@ fn save_document(path: String, text: String) -> Result<(), String> {
     save::write_document(Path::new(&path), &text)
 }
 
+/// "New file": creates an empty Markdown or text file at a path the user chose in the
+/// save dialog. Never replaces a file; returns the path to open.
+#[tauri::command]
+fn create_document(path: String) -> Result<String, String> {
+    save::create_document(Path::new(&path)).map(|p| p.display().to_string())
+}
+
+/// "Save as": writes the text to a path the user chose in the save dialog; returns the
+/// path to open. The page opens it afterwards, which moves the file watcher there.
+#[tauri::command]
+fn save_document_as(path: String, text: String) -> Result<String, String> {
+    save::write_document_as(Path::new(&path), &text).map(|p| p.display().to_string())
+}
+
 /// The page tells the shell whether any tab has unsaved changes (the window then
 /// asks before closing) and whether the shown one has (a dot in the title).
 #[tauri::command]
@@ -347,6 +361,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             save_document,
+            create_document,
+            save_document_as,
             report_dirty,
             open_document,
             read_document,
