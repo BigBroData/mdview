@@ -30,13 +30,8 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
   // "Open a file" is the main button of the screen, not a row of the list.
   const files: Command[] = [];
   if (caps.tabs) {
-    files.push({
-      label: "Next or previous tab",
-      keys: [
-        ["Ctrl", "Tab"],
-        ["Ctrl", "Shift", "Tab"],
-      ],
-    });
+    files.push({ label: "Next tab", keys: [["Ctrl", "Tab"]] });
+    files.push({ label: "Previous tab", keys: [["Ctrl", "Shift", "Tab"]] });
     files.push({ label: "Close the tab", keys: [["Ctrl", "W"]] });
   }
   const reading: Command[] = [
