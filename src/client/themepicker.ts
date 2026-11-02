@@ -57,8 +57,8 @@ export function createThemePicker(panel: HTMLElement, host: Host): ThemePicker {
     const hint = document.createElement("div");
     hint.className = "themes__hint";
     hint.textContent = host.dir()
-      ? `Add your own: ${host.dir()}/name.css`
-      : "Add your own: name.css in the mdview themes folder";
+      ? `Your own themes: .css files in ${host.dir()}`
+      : "Your own themes: .css files in the mdview themes folder";
     panel.replaceChildren(title, list, hint);
     mark();
   }
