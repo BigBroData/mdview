@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { resolveRelative } from "../links.ts";
 import type { ThemeList } from "../themes.ts";
 import { debounce, tauriAssetBase } from "./asset-base.ts";
@@ -25,6 +25,16 @@ export function createTauriPlatform(): Platform {
     loadThemes: () => invoke<ThemeList>("list_themes"),
     initialPaths: () => invoke<string[]>("extra_documents"),
     saveDocument: (path, text) => invoke<void>("save_document", { path, text }),
+    createDocument: (path) => invoke<string>("create_document", { path }),
+    saveDocumentAs: (path, text) => invoke<string>("save_document_as", { path, text }),
+    async chooseSavePath(title, suggested) {
+      const chosen = await save({
+        title,
+        defaultPath: suggested || undefined,
+        filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mdx", "txt"] }],
+      });
+      return typeof chosen === "string" ? chosen : null;
+    },
     reportDirty: (any, shown) => invoke<void>("report_dirty", { any, shown }),
     onCloseRequested(handler) {
       void listen("close-requested", () => handler());

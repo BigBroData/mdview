@@ -42,6 +42,12 @@ export interface Platform {
   openExternal?: (url: string) => Promise<void>;
   /** Writes the editor's text over the document at `path`; absent where editing is not possible. */
   saveDocument?: (path: string, text: string) => Promise<void>;
+  /** Shows a save dialog and returns the path the user chose, or null if they cancelled. */
+  chooseSavePath?: (title: string, suggested: string) => Promise<string | null>;
+  /** Creates an empty file that must not exist yet; returns the path to open. */
+  createDocument?: (path: string) => Promise<string>;
+  /** Writes the text to a new or existing file ("Save as"); returns the path to open. */
+  saveDocumentAs?: (path: string, text: string) => Promise<string>;
   /** Tells the host whether any tab (`any`) or the shown one (`shown`) has unsaved changes. */
   reportDirty?: (any: boolean, shown: boolean) => Promise<void>;
   /** The user tried to close the window while something is unsaved. */

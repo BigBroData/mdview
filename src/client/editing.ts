@@ -2,6 +2,7 @@ import { askUnsaved } from "./dialog.ts";
 import { type Block, detectEol, normalizeEol, previewScrollTop, withEol } from "./edit-logic.ts";
 import { type EditSession, isDirty } from "./edit-session.ts";
 import { createEditor, type Editor } from "./editor.ts";
+import { withMarkdownExtension } from "./paths.ts";
 import type { Document, Platform } from "./platform/types.ts";
 import type { Tab, Tabs } from "./tabs.ts";
 
@@ -43,6 +44,8 @@ export interface Editing {
   toggle(): Promise<void>;
   /** Ctrl+S. Returns whether the text is on disk afterwards. */
   save(tab?: Tab): Promise<boolean>;
+  /** Ctrl+Shift+S. Returns whether the text was written to the file the user named. */
+  saveAs(): Promise<boolean>;
   /** Called before another tab comes to the front: keeps the editor state of this one. */
   park(tab: Tab | undefined): void;
   /** Called after a tab with an edit session came to the front. */
@@ -241,6 +244,51 @@ export function createEditing(deps: EditingDeps): Editing {
     return true;
   }
 
+  /**
+   * Ctrl+Shift+S: writes the text to a file the user names, and the tab follows it.
+   * The old file stays as it was on disk; Back in this tab returns to it.
+   */
+  async function saveAs(): Promise<boolean> {
+    const tab = tabs.active();
+    const session = sessionOf(tab);
+    const { chooseSavePath, saveDocumentAs, openPath } = platform;
+    if (!tab || !session || !editor || !chooseSavePath || !saveDocumentAs || !openPath) {
+      return false;
+    }
+    const chosen = await chooseSavePath("Save as", tab.path);
+    if (chosen === null) return false;
+    const target = withMarkdownExtension(chosen);
+    const other = tabs.find(target);
+    if (other && other !== tab) {
+      deps.status(`${other.name} is open in another tab. Close it first.`, 4500);
+      return false;
+    }
+    const state = editor.state();
+    const text = withEol(state.doc.toString(), session.eol);
+    let loaded: Document | null;
+    try {
+      loaded = await openPath(await saveDocumentAs(target, text));
+    } catch (error) {
+      deps.status(`Cannot save: ${String(error)}`, 6000);
+      return false;
+    }
+    if (!loaded) return false;
+    tab.history.saveScroll(scroller.scrollTop);
+    tab.path = loaded.path;
+    tab.name = loaded.name;
+    tab.editable = loaded.editable === true;
+    tab.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
+    session.state = state;
+    session.savedDoc = state.doc;
+    session.diskText = normalizeEol(text);
+    session.conflict = false;
+    session.armed = false;
+    refresh();
+    refreshPreview();
+    deps.status(`Saved as ${loaded.name}`, 2000);
+    return true;
+  }
+
   // --- entering and leaving ---------------------------------------------------
 
   async function enter(tab: Tab): Promise<void> {
@@ -322,6 +370,7 @@ export function createEditing(deps: EditingDeps): Editing {
     isEditing: () => sessionOf(tabs.active()) !== undefined,
     toggle,
     save,
+    saveAs,
     park,
     arrive,
     diskChanged,

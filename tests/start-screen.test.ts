@@ -5,7 +5,8 @@ const labels = (groups: ReturnType<typeof commandGroups>) =>
   groups.flatMap((group) => group.commands.map((command) => command.label));
 
 describe("start screen commands", () => {
-  const all = { open: true, drop: true, tabs: true, edit: true };
+  const all = { open: true, create: true, drop: true, tabs: true, edit: true, saveAs: true };
+  const none = { open: false, create: false, drop: false, tabs: false, edit: false, saveAs: false };
 
   test("the desktop window lists files, reading and editing commands", () => {
     const groups = commandGroups(all);
@@ -14,11 +15,25 @@ describe("start screen commands", () => {
     expect(labels(groups)).toContain("Switch theme");
   });
 
+  test("creating a file and saving under another name are listed with their keys", () => {
+    const commands = commandGroups(all).flatMap((group) => group.commands);
+    expect(commands.find((c) => c.label === "New file")?.keys).toEqual([["Ctrl", "N"]]);
+    expect(commands.find((c) => c.label === "Save as")?.keys).toEqual([["Ctrl", "Shift", "S"]]);
+  });
+
   test("the browser stage promises nothing it cannot do", () => {
-    const groups = commandGroups({ open: false, drop: false, tabs: false, edit: false });
+    const groups = commandGroups(none);
     expect(groups.map((g) => g.title)).toEqual(["Reading"]);
     expect(labels(groups)).not.toContain("Edit the document");
     expect(labels(groups)).not.toContain("Close the tab");
+    expect(labels(groups)).not.toContain("New file");
+  });
+
+  test("a host that edits but cannot name files does not list New file or Save as", () => {
+    const names = labels(commandGroups({ ...none, edit: true }));
+    expect(names).toContain("Save");
+    expect(names).not.toContain("Save as");
+    expect(names).not.toContain("New file");
   });
 
   test("every command has at least one key combination", () => {

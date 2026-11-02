@@ -5,6 +5,7 @@ import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
 import { classifyLink } from "./links.ts";
 import { createOutline } from "./outline.ts";
+import { siblingPath, withMarkdownExtension } from "./paths.ts";
 import { createBrowserPlatform } from "./platform/browser.ts";
 import { createTauriPlatform } from "./platform/tauri.ts";
 import type { Document, Platform } from "./platform/types.ts";
@@ -350,13 +351,35 @@ function followLink(event: MouseEvent, inNewTab: boolean): void {
   }
 }
 
+/** Ctrl+N: asks where the new file goes, creates it empty, opens it in a tab and starts editing. */
+function newFile(): void {
+  const { chooseSavePath, createDocument, openPath } = platform;
+  if (!chooseSavePath || !createDocument || !openPath) return;
+  serial(async () => {
+    const from = tabs.active()?.path ?? "";
+    const chosen = await chooseSavePath("New Markdown file", siblingPath(from, "Untitled.md"));
+    if (chosen === null) return;
+    let path: string;
+    try {
+      path = await createDocument(withMarkdownExtension(chosen));
+    } catch (error) {
+      showStatus(`Cannot create: ${String(error)}`, 6000);
+      return;
+    }
+    const tab = await openInTab(() => openPath(path), `Cannot open ${path}`);
+    if (tab) await editing.toggle();
+  });
+}
+
 function showEmptyState(): void {
   const openFile = platform.openFile;
   const caps = {
     open: openFile !== undefined,
+    create: platform.createDocument !== undefined && platform.chooseSavePath !== undefined,
     drop: platform.onFileDropped !== undefined,
     tabs: platform.openPath !== undefined,
     edit: platform.saveDocument !== undefined,
+    saveAs: platform.saveDocumentAs !== undefined && platform.chooseSavePath !== undefined,
   };
   const onOpen = openFile
     ? () =>
@@ -482,6 +505,16 @@ function handleShortcut(event: KeyboardEvent): boolean {
     const openFile = platform.openFile;
     serial(async () => {
       await openInTab(openFile, "");
+    });
+    return true;
+  }
+  if (!event.shiftKey && key === "n" && platform.createDocument) {
+    newFile();
+    return true;
+  }
+  if (event.shiftKey && key === "s" && editing.isEditing()) {
+    serial(async () => {
+      await editing.saveAs();
     });
     return true;
   }

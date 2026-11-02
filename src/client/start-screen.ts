@@ -7,12 +7,16 @@
 export interface Capabilities {
   /** A file picker exists (Ctrl+O). */
   open: boolean;
+  /** A new file can be created (Ctrl+N). */
+  create: boolean;
   /** Files can be dropped onto the window. */
   drop: boolean;
   /** Documents can be opened by path, so tabs and links between files work. */
   tabs: boolean;
   /** Documents can be written back: the editor is available. */
   edit: boolean;
+  /** The text can be written to another file (Ctrl+Shift+S). */
+  saveAs: boolean;
 }
 
 /** One command: its name and the key combinations that run it (alternatives). */
@@ -29,6 +33,7 @@ export interface CommandGroup {
 export function commandGroups(caps: Capabilities): CommandGroup[] {
   // "Open a file" is the main button of the screen, not a row of the list.
   const files: Command[] = [];
+  if (caps.create) files.push({ label: "New file", keys: [["Ctrl", "N"]] });
   if (caps.tabs) {
     files.push({ label: "Next tab", keys: [["Ctrl", "Tab"]] });
     files.push({ label: "Previous tab", keys: [["Ctrl", "Shift", "Tab"]] });
@@ -60,13 +65,12 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
   if (files.length > 0) groups.push({ title: "Files", commands: files });
   groups.push({ title: "Reading", commands: reading });
   if (caps.edit) {
-    groups.push({
-      title: "Editing",
-      commands: [
-        { label: "Edit the document", keys: [["Ctrl", "E"]] },
-        { label: "Save", keys: [["Ctrl", "S"]] },
-      ],
-    });
+    const editing: Command[] = [
+      { label: "Edit the document", keys: [["Ctrl", "E"]] },
+      { label: "Save", keys: [["Ctrl", "S"]] },
+    ];
+    if (caps.saveAs) editing.push({ label: "Save as", keys: [["Ctrl", "Shift", "S"]] });
+    groups.push({ title: "Editing", commands: editing });
   }
   return groups;
 }
