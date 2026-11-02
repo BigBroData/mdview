@@ -533,12 +533,134 @@ p > img:only-child {
   font-size: 0.85em;
 }
 
-/* ---------- empty state ---------- */
+/* ---------- start screen (no document open) ---------- */
 
-.empty {
-  color: var(--fg-muted);
+.start {
+  min-height: calc(100vh - 9.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  margin-top: 30vh;
+}
+
+.start .start__name {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 2.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.start__tagline {
+  margin: 0.4rem 0 0;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+}
+
+.start__head {
+  margin-bottom: 1.9rem;
+}
+
+.start__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.start__open:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.start__drop {
+  margin: 0.85rem 0 0;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+
+/* Two balanced columns of command groups; one column in a narrow window. */
+.start__groups {
+  width: min(46rem, 100%);
+  margin-top: 2.6rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+  column-count: 2;
+  column-gap: 3.5rem;
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  .start__groups {
+    column-count: 1;
+  }
+}
+
+.start__group {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+}
+
+.start .start__title {
+  margin: 0 0 0.4rem;
+  padding: 0;
+  border: 0;
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.start__rows {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin: 0;
+}
+
+.start__rows dt,
+.start__rows dd {
+  margin: 0;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.9rem;
+}
+
+.start__rows dd {
+  padding-left: 1rem;
+  text-align: right;
+}
+
+.start__keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.start__combo {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.start__or {
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+}
+
+.start kbd {
+  font-size: 0.74rem;
+  color: var(--fg);
 }
 
 /* ---------- heading strip ---------- */

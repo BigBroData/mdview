@@ -19,6 +19,7 @@ import {
   ZOOM_DEFAULT,
   ZOOM_STEP,
 } from "./settings.ts";
+import { createStartScreen } from "./start-screen.ts";
 import { createTabBar } from "./tabbar.ts";
 import { createTabs, type Tab } from "./tabs.ts";
 import { createThemePicker } from "./themepicker.ts";
@@ -350,9 +351,21 @@ function followLink(event: MouseEvent, inNewTab: boolean): void {
 }
 
 function showEmptyState(): void {
-  doc.innerHTML = `<p class="empty">No file open.${
-    platform.openFile ? " Press <kbd>Ctrl</kbd>+<kbd>O</kbd> or drop a Markdown file here." : ""
-  }</p>`;
+  const openFile = platform.openFile;
+  const caps = {
+    open: openFile !== undefined,
+    drop: platform.onFileDropped !== undefined,
+    tabs: platform.openPath !== undefined,
+    edit: platform.saveDocument !== undefined,
+  };
+  const onOpen = openFile
+    ? () =>
+        serial(async () => {
+          await openInTab(openFile, "");
+        })
+    : undefined;
+  doc.replaceChildren(createStartScreen(caps, onOpen));
+  scroller.scrollTop = 0;
 }
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined;
