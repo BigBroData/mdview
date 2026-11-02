@@ -1,5 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { isMdxName, renderMarkdown } from "../render/markdown.ts";
+import { createEditing } from "./editing.ts";
 import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
 import { classifyLink } from "./links.ts";
@@ -49,6 +50,10 @@ import { createToc } from "./toc.ts";
  * Themes: CSS files in ~/.config/mdview/themes redefine the colour tokens; Ctrl+Shift+T
  * opens the switcher (docs/themes.md).
  *
+
+ * Editing (v2): Ctrl+E turns the shown document into an editor with a live preview
+ * (editing.ts); Ctrl+S saves. Unsaved changes are never dropped without asking.
+ *
  * Keys: Ctrl+O open · Ctrl+W close tab · Ctrl+F find · Ctrl+Shift+O contents panel · Ctrl+Shift+W column width · Ctrl+= / Ctrl+- / Ctrl+0 text size
  */
 const doc = mustFind("doc");
@@ -77,6 +82,24 @@ function serial(task: () => Promise<void>): void {
 }
 
 const activeHistory = () => tabs.active()?.history;
+
+const editing = createEditing({
+  platform,
+  tabs,
+  section: mustFind("editor"),
+  host: mustFind("editor-host"),
+  stateLabel: mustFind("editor-state"),
+  saveButton: mustFind("editor-save") as HTMLButtonElement,
+  doneButton: mustFind("editor-done") as HTMLButtonElement,
+  scroller,
+  doc,
+  renderPreview: (tab, text) =>
+    render({ path: tab.path, name: tab.name, text, editable: true }, { force: true }),
+  renderView: (document_) => render(document_, { force: true }),
+  refreshTabs: () => tabBar.update(tabs.all(), tabs.active()?.id),
+  status: (message, hideAfterMs) => showStatus(message, hideAfterMs),
+  run: serial,
+});
 let lastText: string | null = null;
 let currentPath = "";
 
@@ -96,6 +119,7 @@ function render(document_: Document, options: RenderOptions = {}): void {
   doc.innerHTML = renderMarkdown(document_.text, {
     assetBase: platform.assetBase,
     mdx: isMdxName(document_.name),
+    sourceLines: tabs.active()?.edit !== undefined, // the editor keeps the preview beside the cursor
   });
   // Synchronous on purpose: requestAnimationFrame does not fire in a hidden
   // tab, and the strip must be right whenever the page becomes visible.
@@ -110,6 +134,7 @@ function render(document_: Document, options: RenderOptions = {}): void {
   if (tab) {
     tab.path = document_.path;
     tab.name = document_.name;
+    tab.editable = document_.editable === true;
   }
   tabBar.update(tabs.all(), tab?.id);
   console.debug(`mdview: rendered in ${(performance.now() - started).toFixed(1)} ms`);
@@ -169,22 +194,33 @@ async function openInTab(
   if (!loaded) return undefined;
   const from = tabs.active();
   from?.history.saveScroll(scroller.scrollTop);
+  editing.park(from);
   const existing = tabs.find(loaded.path);
   if (existing) {
     tabs.activate(existing.id);
     const scrollTop =
       existing === from ? scroller.scrollTop : (existing.history.current()?.scrollTop ?? 0);
-    render(loaded, { force: true, scrollTop });
+    present(existing, loaded, scrollTop);
     if (fragment && scrollToId(fragment)) {
       existing.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
     }
     return existing;
   }
   const tab = tabs.add(loaded.path, loaded.name);
-  render(loaded, { force: true, scrollTop: 0 });
+  present(tab, loaded, 0);
   if (fragment) scrollToId(fragment);
   tab.history.push({ path: loaded.path, scrollTop: scroller.scrollTop });
   return tab;
+}
+
+/** Shows the document of a tab that just came to the front, as text or in the editor. */
+function present(tab: Tab, loaded: Document, scrollTop: number): void {
+  if (tab.edit) {
+    editing.arrive(tab, loaded);
+    return;
+  }
+  render(loaded, { force: true, scrollTop });
+  editing.refresh();
 }
 
 /** Opens several documents as tabs; the first of them ends up in front. */
@@ -209,8 +245,9 @@ async function showTab(target: Tab): Promise<boolean> {
   const loaded = await load(() => openPath(target.path), `Cannot open ${target.path}`);
   if (!loaded) return false;
   from?.history.saveScroll(scroller.scrollTop);
+  editing.park(from);
   tabs.activate(target.id);
-  render(loaded, { force: true, scrollTop: target.history.current()?.scrollTop ?? 0 });
+  present(target, loaded, target.history.current()?.scrollTop ?? 0);
   return true;
 }
 
@@ -220,12 +257,18 @@ async function switchTo(id: number): Promise<void> {
 }
 
 async function closeTab(id: number): Promise<void> {
-  if (!tabs.all().some((tab) => tab.id === id)) return;
+  const closing = tabs.all().find((tab) => tab.id === id);
+  if (!closing) return;
+  if (!(await editing.confirmClose([closing]))) return;
   if (tabs.all().length === 1) {
+    closing.edit = undefined; // nothing left to protect: the host may close the window
+    editing.refresh();
+    await platform.reportDirty?.(false, false);
     platform.closeWindow?.(); // closing the last tab closes the window
     return;
   }
   const wasActive = tabs.active()?.id === id;
+  if (wasActive) editing.park(closing);
   let next = tabs.remove(id);
   if (wasActive) {
     // A tab whose file vanished cannot be shown; drop it too and try its neighbour.
@@ -235,6 +278,7 @@ async function closeTab(id: number): Promise<void> {
       showEmptyState();
     }
   }
+  editing.refresh();
   tabBar.update(tabs.all(), tabs.active()?.id);
 }
 
@@ -250,6 +294,7 @@ async function visit(entry: Entry): Promise<void> {
 }
 
 function goBack(): void {
+  if (editing.isEditing()) return; // a replaced document would take the text being edited with it
   const history = activeHistory();
   history?.saveScroll(scroller.scrollTop);
   const entry = history?.back();
@@ -257,6 +302,7 @@ function goBack(): void {
 }
 
 function goForward(): void {
+  if (editing.isEditing()) return;
   const history = activeHistory();
   history?.saveScroll(scroller.scrollTop);
   const entry = history?.forward();
@@ -275,7 +321,10 @@ function scrollToId(id: string): boolean {
 function jumpToAnchor(id: string): void {
   const history = activeHistory();
   history?.saveScroll(scroller.scrollTop);
-  if (scrollToId(id)) history?.push({ path: currentPath, scrollTop: scroller.scrollTop });
+  if (scrollToId(id)) {
+    history?.push({ path: currentPath, scrollTop: scroller.scrollTop });
+    editing.revealHeading(id);
+  }
 }
 
 /** A click on a link; with `inNewTab` (Ctrl+click, middle button) a document link opens as a tab. */
@@ -290,7 +339,7 @@ function followLink(event: MouseEvent, inNewTab: boolean): void {
     const openLink = platform.openLink;
     if (!openLink) return;
     const missing = `File not found: ${link.path}`;
-    if (inNewTab) {
+    if (inNewTab || editing.isEditing()) {
       serial(async () => {
         await openInTab(() => openLink(link.path), missing, link.fragment);
       });
@@ -423,6 +472,16 @@ function handleShortcut(event: KeyboardEvent): boolean {
     });
     return true;
   }
+  if (!event.shiftKey && key === "e") {
+    serial(() => editing.toggle());
+    return true;
+  }
+  if (!event.shiftKey && key === "s" && editing.isEditing()) {
+    serial(async () => {
+      await editing.save();
+    });
+    return true;
+  }
   if (!event.shiftKey && key === "w" && (tabs.all().length > 1 || platform.closeWindow)) {
     const tab = tabs.active();
     if (tab) serial(() => closeTab(tab.id));
@@ -484,10 +543,24 @@ platform.onConnectionLost?.((lost) => {
 });
 
 platform.watch(() => {
-  serial(() => show(platform.reload, "File not found. Last rendered version is shown."));
+  serial(() =>
+    tabs.active()?.edit
+      ? editing.diskChanged()
+      : show(platform.reload, "File not found. Last rendered version is shown."),
+  );
+});
+
+// The window was asked to close: if anything is unsaved, ask first.
+platform.onCloseRequested?.(() => {
+  serial(async () => {
+    if (!(await editing.confirmClose(tabs.all()))) return;
+    await platform.reportDirty?.(false, false);
+    platform.closeWindow?.();
+  });
 });
 
 window.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented) return; // the editor already took this key
   if (handleShortcut(event)) event.preventDefault();
 });
 

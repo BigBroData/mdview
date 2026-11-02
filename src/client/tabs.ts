@@ -1,3 +1,4 @@
+import type { EditSession } from "./edit-session.ts";
 import { createHistory, type History } from "./history.ts";
 
 /**
@@ -11,6 +12,12 @@ export interface Tab {
   path: string;
   name: string;
   readonly history: History;
+  /** The file may be edited (valid UTF-8, writable, a Markdown or text name); known after the first load. */
+  editable: boolean;
+  /** Present while the tab is in edit mode. */
+  edit?: EditSession;
+  /** The editor holds changes that are not on disk. */
+  dirty: boolean;
 }
 
 export interface Tabs {
@@ -42,7 +49,14 @@ export function createTabs(): Tabs {
     all: () => tabs,
     active: () => tabs.find((tab) => tab.id === activeId),
     add(path, name) {
-      const tab: Tab = { id: nextId++, path, name, history: createHistory() };
+      const tab: Tab = {
+        id: nextId++,
+        path,
+        name,
+        history: createHistory(),
+        editable: false,
+        dirty: false,
+      };
       tabs.push(tab);
       activeId = tab.id;
       return tab;

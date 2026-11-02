@@ -922,6 +922,148 @@ mark.search-hit--current {
   }
 }
 
+/* ---------- editor (edit mode, Ctrl+E) ---------- */
+
+/* The editor stands left of the preview; both share the width. */
+.editor {
+  flex: 1 1 50%;
+  min-width: 18rem;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--rule);
+}
+
+.editor[hidden] {
+  display: none;
+}
+
+:root[data-mode="edit"] .scroller {
+  flex: 1 1 50%;
+}
+
+.editor__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.editor__spacer {
+  flex: 1 1 auto;
+}
+
+.editor__state[data-state="dirty"] {
+  color: var(--fg);
+}
+
+.editor__state[data-state="dirty"]::before {
+  content: "● ";
+  color: var(--accent);
+}
+
+.editor__state[data-state="conflict"] {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.editor__button {
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor__button:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.editor__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.editor__host {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* A dot on a tab with unsaved changes. */
+.tab__dirty {
+  flex: 0 0 auto;
+  margin-right: -0.2rem;
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
+/* ---------- unsaved-changes question ---------- */
+
+.modal {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.modal__box {
+  width: min(26rem, 100%);
+  padding: 1.1rem 1.2rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  color: var(--surface-ink);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal__title {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.modal__note {
+  margin: 0 0 1rem;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+
+.modal__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal__button {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.modal__button:hover {
+  background: var(--accent-soft);
+}
+
+.modal .modal__button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
 /* ---------- theme switcher ---------- */
 
 .themes {
@@ -1033,7 +1175,9 @@ mark.search-hit--current {
     display: block;
   }
   .tabs,
-  .toc {
+  .toc,
+  .editor,
+  .modal {
     display: none;
   }
   .scroller {

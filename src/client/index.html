@@ -12,6 +12,15 @@
     <div id="tabs" class="tabs" role="tablist" aria-label="Open documents" hidden></div>
     <div class="reader">
       <nav id="toc" class="toc" aria-label="Contents" hidden></nav>
+      <section id="editor" class="editor" aria-label="Editor" hidden>
+        <div class="editor__bar">
+          <span id="editor-state" class="editor__state"></span>
+          <span class="editor__spacer"></span>
+          <button id="editor-save" class="editor__button" type="button" title="Save (Ctrl+S)">Save</button>
+          <button id="editor-done" class="editor__button" type="button" title="Back to reading (Ctrl+E)">Done</button>
+        </div>
+        <div id="editor-host" class="editor__host"></div>
+      </section>
       <div id="scroller" class="scroller" tabindex="-1">
         <main id="doc" class="document" aria-live="polite"></main>
       </div>

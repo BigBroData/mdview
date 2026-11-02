@@ -24,6 +24,11 @@ export function createTauriPlatform(): Platform {
     openExternal: (url) => invoke<void>("open_external", { url }),
     loadThemes: () => invoke<ThemeList>("list_themes"),
     initialPaths: () => invoke<string[]>("extra_documents"),
+    saveDocument: (path, text) => invoke<void>("save_document", { path, text }),
+    reportDirty: (any, shown) => invoke<void>("report_dirty", { any, shown }),
+    onCloseRequested(handler) {
+      void listen("close-requested", () => handler());
+    },
     closeWindow: () => void invoke<void>("close_window"),
     onOpenRequest(handler) {
       void listen<string[]>("open-request", (event) => handler(event.payload));

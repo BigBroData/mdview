@@ -11,6 +11,8 @@ export interface Document {
   /** File name for the window title. */
   name: string;
   text: string;
+  /** The editor may change this file; absent where editing is not possible. */
+  editable?: boolean;
 }
 
 export interface Platform {
@@ -38,6 +40,12 @@ export interface Platform {
   openLink?: (href: string) => Promise<Document | null>;
   /** Shows a web link in the user's own browser. */
   openExternal?: (url: string) => Promise<void>;
+  /** Writes the editor's text over the document at `path`; absent where editing is not possible. */
+  saveDocument?: (path: string, text: string) => Promise<void>;
+  /** Tells the host whether any tab (`any`) or the shown one (`shown`) has unsaved changes. */
+  reportDirty?: (any: boolean, shown: boolean) => Promise<void>;
+  /** The user tried to close the window while something is unsaved. */
+  onCloseRequested?: (handler: () => void) => void;
   /** The user's theme files and where they live. */
   loadThemes?: () => Promise<ThemeList>;
   /** Called when the host loses the ability to notify (browser stage: viewer stopped). */

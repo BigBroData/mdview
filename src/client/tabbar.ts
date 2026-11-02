@@ -45,7 +45,10 @@ export function createTabBar(bar: HTMLElement, handlers: Handlers): TabBar {
       bar.hidden = !visible;
       document.documentElement.dataset.tabs = visible ? "on" : "off";
       // Re-rendering a document calls this often; rebuild only when something shows differently.
-      const signature = JSON.stringify([activeId, tabs.map((tab) => [tab.id, tab.name, tab.path])]);
+      const signature = JSON.stringify([
+        activeId,
+        tabs.map((tab) => [tab.id, tab.name, tab.path, tab.dirty]),
+      ]);
       if (signature === shown) return;
       shown = signature;
       bar.replaceChildren(
@@ -56,6 +59,14 @@ export function createTabBar(bar: HTMLElement, handlers: Handlers): TabBar {
           item.setAttribute("role", "tab");
           item.setAttribute("aria-selected", String(tab.id === activeId));
           item.title = tab.path;
+          if (tab.dirty) {
+            const dot = document.createElement("span");
+            dot.className = "tab__dirty";
+            dot.title = "Unsaved changes";
+            dot.setAttribute("aria-label", "Unsaved changes");
+            dot.textContent = "●";
+            item.append(dot);
+          }
           const name = document.createElement("span");
           name.className = "tab__name";
           name.textContent = tab.name;

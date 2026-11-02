@@ -1,0 +1,179 @@
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { search, searchKeymap } from "@codemirror/search";
+import { EditorState, Transaction } from "@codemirror/state";
+import { drawSelection, EditorView, keymap } from "@codemirror/view";
+import { tags } from "@lezer/highlight";
+
+/**
+ * The text editor (CodeMirror 6). One view serves every tab: each tab keeps
+ * its own EditorState (text, selection, undo history), and showing a tab is
+ * `setState`. Colours are CSS variables, so themes (docs/themes.md) paint the
+ * editor like the page.
+ */
+export interface EditorHooks {
+  /** The text changed (typing, undo, paste). */
+  change(): void;
+  /** The editor scrolled. */
+  scroll(): void;
+}
+
+export interface Editor {
+  /** A fresh state for a document; the text must already use "\n" line ends. */
+  create(text: string): EditorState;
+  /** Replaces the text of the shown document (an outside change); not an undo step, and `change` is not called. */
+  replace(text: string): void;
+  /** The same state with its text replaced (undo history is kept out of it). */
+  withText(state: EditorState, text: string): EditorState;
+  show(state: EditorState, scrollTop?: number): void;
+  state(): EditorState;
+  scrollTop(): number;
+  /** Scrolled all the way down (and there is something to scroll). */
+  atBottom(): boolean;
+  /** First visible source line, counted from 0, with the part of it scrolled off. */
+  topLine(): number;
+  /** Puts the cursor on a source line (counted from 0) and scrolls it to the top. */
+  revealLine(line: number): void;
+  focus(): void;
+}
+
+const markdownHighlight = HighlightStyle.define([
+  { tag: tags.heading1, fontWeight: "700", color: "var(--fg)" },
+  { tag: tags.heading2, fontWeight: "700", color: "var(--fg)" },
+  {
+    tag: [tags.heading3, tags.heading4, tags.heading5, tags.heading6],
+    fontWeight: "600",
+    color: "var(--fg)",
+  },
+  { tag: tags.strong, fontWeight: "700" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+  { tag: tags.strikethrough, textDecoration: "line-through" },
+  { tag: tags.link, color: "var(--accent)" },
+  { tag: tags.url, color: "var(--tok-meta)" },
+  { tag: tags.monospace, color: "var(--tok-string)" },
+  { tag: tags.quote, color: "var(--fg-muted)" },
+  { tag: [tags.list, tags.contentSeparator], color: "var(--tok-keyword)" },
+  { tag: [tags.processingInstruction, tags.meta, tags.labelName], color: "var(--fg-muted)" },
+  { tag: tags.comment, color: "var(--tok-comment)" },
+]);
+
+const theme = EditorView.theme({
+  "&": {
+    height: "100%",
+    color: "var(--fg)",
+    backgroundColor: "var(--bg)",
+    fontSize: "0.92rem",
+  },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": {
+    fontFamily: "var(--font-mono)",
+    lineHeight: "1.65",
+    scrollbarWidth: "thin",
+  },
+  ".cm-content": { padding: "1.25rem 1rem 8rem", caretColor: "var(--fg)" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--fg)", borderLeftWidth: "2px" },
+  ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground":
+    { backgroundColor: "var(--selection)" },
+  ".cm-panels": {
+    backgroundColor: "var(--surface)",
+    color: "var(--surface-ink)",
+    borderColor: "var(--rule-strong)",
+    fontFamily: "var(--font-text)",
+  },
+  ".cm-panels-top": { borderBottom: "1px solid var(--rule-strong)" },
+  ".cm-panel.cm-search input, .cm-panel.cm-search button": {
+    fontFamily: "inherit",
+    fontSize: "0.85rem",
+    color: "var(--fg)",
+    backgroundColor: "var(--bg)",
+    border: "1px solid var(--rule-strong)",
+    borderRadius: "0.35rem",
+  },
+  ".cm-panel.cm-search button": { backgroundImage: "none", cursor: "pointer" },
+  ".cm-panel.cm-search label": { fontSize: "0.8rem" },
+  ".cm-searchMatch": { backgroundColor: "var(--mark)" },
+  ".cm-searchMatch.cm-searchMatch-selected": {
+    backgroundColor: "var(--accent)",
+    color: "var(--on-accent)",
+  },
+});
+
+export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
+  let silent = false;
+  const extensions = [
+    history(),
+    drawSelection(),
+    markdown({ base: markdownLanguage }),
+    syntaxHighlighting(markdownHighlight),
+    search({ top: true }),
+    EditorView.lineWrapping,
+    EditorView.contentAttributes.of({
+      "aria-label": "Markdown source",
+      spellcheck: "false",
+      autocapitalize: "off",
+      autocorrect: "off",
+    }),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    theme,
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged && !silent) hooks.change();
+    }),
+  ];
+  const view = new EditorView({ parent, state: EditorState.create({ doc: "", extensions }) });
+  view.scrollDOM.addEventListener("scroll", () => hooks.scroll(), { passive: true });
+
+  return {
+    replace(text) {
+      silent = true;
+      try {
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: text },
+          annotations: Transaction.addToHistory.of(false),
+        });
+      } finally {
+        silent = false;
+      }
+    },
+    create: (text) => EditorState.create({ doc: text, extensions }),
+    withText: (state, text) =>
+      state.update({
+        changes: { from: 0, to: state.doc.length, insert: text },
+        annotations: Transaction.addToHistory.of(false),
+      }).state,
+    show(state, scrollTop = 0) {
+      view.setState(state);
+      view.scrollDOM.scrollTop = scrollTop;
+      // The editor measures its content lazily; set the position again once it has.
+      requestAnimationFrame(() => {
+        view.scrollDOM.scrollTop = scrollTop;
+      });
+    },
+    state: () => view.state,
+    scrollTop: () => view.scrollDOM.scrollTop,
+    atBottom() {
+      const box = view.scrollDOM;
+      return (
+        box.scrollHeight > box.clientHeight &&
+        box.scrollTop + box.clientHeight >= box.scrollHeight - 2
+      );
+    },
+    topLine() {
+      const top = Math.max(0, view.scrollDOM.scrollTop - view.documentPadding.top);
+      const block = view.lineBlockAtHeight(top);
+      const line = view.state.doc.lineAt(block.from).number - 1;
+      const part =
+        block.height > 0 ? Math.min(1, Math.max(0, (top - block.top) / block.height)) : 0;
+      return line + part;
+    },
+    revealLine(line) {
+      const doc = view.state.doc;
+      const target = doc.line(Math.min(doc.lines, Math.max(1, Math.round(line) + 1)));
+      view.dispatch({
+        selection: { anchor: target.from },
+        effects: EditorView.scrollIntoView(target.from, { y: "start", yMargin: 16 }),
+      });
+    },
+    focus: () => view.focus(),
+  };
+}
