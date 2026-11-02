@@ -1,5 +1,5 @@
 /**
- * Reader settings that survive restarts: text column width, text size and theme.
+ * Reader settings that survive restarts: text column width, text size, theme and contents panel.
  * Pure functions here; the storage is injected so tests need no browser.
  */
 export const WIDTHS = ["column", "wide", "full"] as const;
@@ -16,9 +16,16 @@ export interface Settings {
   zoom: number;
   /** Name of the chosen theme; empty means the app's own colours. */
   theme: string;
+  /** Whether the contents panel at the left edge is shown. */
+  toc: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { width: "column", zoom: ZOOM_DEFAULT, theme: "" };
+export const DEFAULT_SETTINGS: Settings = {
+  width: "column",
+  zoom: ZOOM_DEFAULT,
+  theme: "",
+  toc: false,
+};
 
 export function nextWidth(current: Width): Width {
   const index = WIDTHS.indexOf(current);
@@ -57,6 +64,7 @@ export function loadSettings(store: KeyValueStore | null): Settings {
         typeof candidate.theme === "string" && candidate.theme.length <= 100
           ? candidate.theme
           : DEFAULT_SETTINGS.theme,
+      toc: typeof candidate.toc === "boolean" ? candidate.toc : DEFAULT_SETTINGS.toc,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
