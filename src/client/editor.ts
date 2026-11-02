@@ -3,7 +3,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { search, searchKeymap } from "@codemirror/search";
 import { EditorState, Transaction } from "@codemirror/state";
-import { drawSelection, EditorView, keymap } from "@codemirror/view";
+import { drawSelection, EditorView, keymap, runScopeHandlers } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
 /**
@@ -99,6 +99,28 @@ const theme = EditorView.theme({
   },
 });
 
+/**
+ * Editor shortcuts follow the physical key, as the page's own do (keys.ts): with a
+ * Russian layout Ctrl+Z arrives as "я", which CodeMirror cannot match to its
+ * bindings. A Ctrl/Cmd chord whose character is not Latin is replayed under the
+ * Latin letter of the same key.
+ */
+const physicalKeyShortcuts = EditorView.domEventHandlers({
+  keydown(event, view) {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return false;
+    const letter = /^Key([A-Z])$/.exec(event.code)?.[1];
+    if (!letter || event.key.length !== 1 || event.key.charCodeAt(0) < 128) return false;
+    const latin = new KeyboardEvent("keydown", {
+      key: letter.toLowerCase(),
+      code: event.code,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      shiftKey: event.shiftKey,
+    });
+    return runScopeHandlers(view, latin, "editor");
+  },
+});
+
 export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
   let silent = false;
   const extensions = [
@@ -116,6 +138,7 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
     }),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     theme,
+    physicalKeyShortcuts,
     EditorView.updateListener.of((update) => {
       if (update.docChanged && !silent) hooks.change();
     }),
