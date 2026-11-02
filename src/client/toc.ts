@@ -74,6 +74,14 @@ export function createToc(
     scroller.focus({ preventScroll: true });
   });
 
+  // A tooltip only where the text is cut off; elsewhere it just repeats the entry.
+  panel.addEventListener("mouseover", (event) => {
+    const item = (event.target as Element).closest<HTMLElement>("a[data-id]");
+    if (!item) return;
+    if (item.scrollWidth > item.clientWidth) item.title = item.textContent ?? "";
+    else item.removeAttribute("title");
+  });
+
   function collect(): TocEntry[] {
     const base = scroller.getBoundingClientRect().top;
     const result: TocEntry[] = [];
@@ -104,7 +112,6 @@ export function createToc(
       link.className = `toc__item toc__item--d${depth[index] ?? 0}`;
       link.href = `#${encodeURIComponent(entry.id)}`;
       link.dataset.id = entry.id;
-      link.title = entry.text;
       link.textContent = entry.text;
       return link;
     });
