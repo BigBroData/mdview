@@ -44,8 +44,8 @@ describe("zoom is clamped and rounded", () => {
 describe("settings persistence", () => {
   test("round trip", () => {
     const store = fakeStore();
-    saveSettings(store, { width: "wide", zoom: 20 });
-    expect(loadSettings(store)).toEqual({ width: "wide", zoom: 20 });
+    saveSettings(store, { width: "wide", zoom: 20, theme: "sepia" });
+    expect(loadSettings(store)).toEqual({ width: "wide", zoom: 20, theme: "sepia" });
   });
 
   test("missing, corrupt or hostile values fall back to defaults", () => {
@@ -58,7 +58,10 @@ describe("settings persistence", () => {
     ).toEqual(DEFAULT_SETTINGS);
     expect(
       loadSettings(fakeStore({ "mdview.settings": JSON.stringify({ width: "full", zoom: 999 }) })),
-    ).toEqual({ width: "full", zoom: ZOOM_MAX });
+    ).toEqual({ width: "full", zoom: ZOOM_MAX, theme: "" });
+    expect(loadSettings(fakeStore({ "mdview.settings": JSON.stringify({ theme: 5 }) })).theme).toBe(
+      "",
+    );
   });
 
   test("a throwing store does not break the app", () => {
