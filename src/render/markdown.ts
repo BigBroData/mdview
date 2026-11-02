@@ -6,6 +6,7 @@ import { type AssetEnv, assetUrlsPlugin } from "./asset-urls.ts";
 import { frontMatterPlugin } from "./front-matter.ts";
 import { headingIdsPlugin } from "./heading-ids.ts";
 import { mdxPlugin } from "./mdx.ts";
+import { type SourceLinesEnv, sourceLinesPlugin } from "./source-lines.ts";
 import { tableColumnsPlugin } from "./table-columns.ts";
 import { taskListsPlugin } from "./task-lists.ts";
 
@@ -18,6 +19,8 @@ export interface RenderOptions {
   assetBase?: string;
   /** The document is MDX: show module lines and JSX tags instead of escaping them as text. */
   mdx?: boolean;
+  /** Mark top-level blocks with `data-line` (their first source line); the editor's preview uses it. */
+  sourceLines?: boolean;
 }
 
 // The KaTeX plugin is a CommonJS module with `exports.default`. Bun's runtime
@@ -54,8 +57,12 @@ export function createRenderer(options: { mdx?: boolean } = {}): Renderer {
   md.use(assetUrlsPlugin);
   md.use(headingIdsPlugin);
   md.use(tableColumnsPlugin);
+  md.use(sourceLinesPlugin);
   // Wide tables scroll inside their own box instead of breaking the page.
-  md.renderer.rules.table_open = () => '<div class="table-wrap"><table>';
+  md.renderer.rules.table_open = (tokens, idx) => {
+    const line = tokens[idx]?.attrGet("data-line");
+    return `<div class="table-wrap"${line === null || line === undefined ? "" : ` data-line="${line}"`}><table>`;
+  };
   md.renderer.rules.table_close = () => "</table></div>";
   return md;
 }
@@ -64,7 +71,10 @@ const shared = createRenderer();
 const sharedMdx = createRenderer({ mdx: true });
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): string {
-  const env: AssetEnv = { assetBase: options.assetBase };
+  const env: AssetEnv & SourceLinesEnv = {
+    assetBase: options.assetBase,
+    sourceLines: options.sourceLines,
+  };
   return (options.mdx ? sharedMdx : shared).render(stripBom(source), env);
 }
 
