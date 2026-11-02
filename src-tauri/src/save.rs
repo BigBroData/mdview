@@ -1,0 +1,173 @@
+//! Writing a document back to disk (the editor's Ctrl+S) and deciding whether
+//! a file may be edited at all.
+//!
+//! Rules that keep the user's files safe:
+//! - only an existing Markdown/text file is written, never a new path;
+//! - a read-only file is refused;
+//! - a file that is not valid UTF-8 is not editable, because the editor would
+//!   save the replacement characters of the lossy read over the real bytes;
+//! - an optional byte-order mark survives the round trip;
+//! - the write goes to a temporary file that replaces the original (a crash
+//!   leaves the old text), falling back to writing in place where the folder
+//!   does not allow a new file. Symlinks are resolved first, so the link stays.
+
+use std::path::{Path, PathBuf};
+
+const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
+
+/// Extensions the editor will write; the same family the viewer opens, plus `.txt`.
+const EDITABLE_EXTENSIONS: [&str; 5] = ["md", "markdown", "mdown", "mdx", "txt"];
+
+pub fn is_editable_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| EDITABLE_EXTENSIONS.iter().any(|x| e.eq_ignore_ascii_case(x)))
+}
+
+/// The file's bytes can be edited and saved without changing anything the user did not touch.
+pub fn can_edit(path: &Path, bytes: &[u8], readonly: bool) -> bool {
+    !readonly && is_editable_path(path) && std::str::from_utf8(bytes).is_ok()
+}
+
+/// The bytes to store: the text, behind a byte-order mark if the file had one.
+pub fn encode(text: &str, had_bom: bool) -> Vec<u8> {
+    let mut out = Vec::with_capacity(text.len() + 3);
+    if had_bom {
+        out.extend_from_slice(&BOM);
+    }
+    out.extend_from_slice(text.as_bytes());
+    out
+}
+
+fn replace_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("no parent folder"))?;
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let temp: PathBuf = dir.join(format!(".{name}.mdview-save"));
+    let result = (|| {
+        std::fs::write(&temp, bytes)?;
+        std::fs::set_permissions(&temp, std::fs::metadata(path)?.permissions())?;
+        std::fs::rename(&temp, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result
+}
+
+pub fn write_document(path: &Path, text: &str) -> Result<(), String> {
+    let path = path
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
+    let meta =
+        std::fs::metadata(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    if !meta.is_file() {
+        return Err(format!("not a file: {}", path.display()));
+    }
+    if !is_editable_path(&path) {
+        return Err(format!(
+            "refusing to write {}: not a Markdown or text file",
+            path.display()
+        ));
+    }
+    if meta.permissions().readonly() {
+        return Err(format!("{} is read-only", path.display()));
+    }
+    let had_bom = std::fs::read(&path)
+        .map(|b| b.starts_with(&BOM))
+        .unwrap_or(false);
+    let bytes = encode(text, had_bom);
+    if replace_atomically(&path, &bytes).is_ok() {
+        return Ok(());
+    }
+    std::fs::write(&path, &bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("mdview-save-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn only_markdown_and_text_paths_are_editable() {
+        assert!(is_editable_path(Path::new("/a/b.md")));
+        assert!(is_editable_path(Path::new("/a/b.MDX")));
+        assert!(is_editable_path(Path::new("/a/b.txt")));
+        assert!(!is_editable_path(Path::new("/a/b.rs")));
+        assert!(!is_editable_path(Path::new("/etc/passwd")));
+    }
+
+    #[test]
+    fn invalid_utf8_and_read_only_files_are_not_editable() {
+        let p = Path::new("/a/b.md");
+        assert!(can_edit(p, "привет".as_bytes(), false));
+        assert!(!can_edit(p, &[0xff, 0xfe, 0x41], false));
+        assert!(!can_edit(p, b"text", true));
+    }
+
+    #[test]
+    fn bom_is_kept_only_if_the_file_had_one() {
+        assert_eq!(encode("a", false), b"a");
+        assert_eq!(encode("a", true), [0xEF, 0xBB, 0xBF, b'a']);
+    }
+
+    #[test]
+    fn saves_text_and_keeps_bom_and_no_temp_file_is_left() {
+        let dir = scratch("bom");
+        let file = dir.join("note.md");
+        std::fs::write(&file, [&BOM[..], b"old"].concat()).unwrap();
+        write_document(&file, "# new\n").unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), [&BOM[..], b"# new\n"].concat());
+        let leftovers: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().collect();
+        assert_eq!(leftovers.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn refuses_other_files_read_only_files_and_new_paths() {
+        let dir = scratch("refuse");
+        let code = dir.join("main.rs");
+        std::fs::write(&code, "fn main() {}").unwrap();
+        assert!(write_document(&code, "x").is_err());
+        assert_eq!(std::fs::read_to_string(&code).unwrap(), "fn main() {}");
+
+        let ro = dir.join("ro.md");
+        std::fs::write(&ro, "keep").unwrap();
+        let mut perms = std::fs::metadata(&ro).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&ro, perms).unwrap();
+        assert!(write_document(&ro, "x").is_err());
+        assert_eq!(std::fs::read_to_string(&ro).unwrap(), "keep");
+
+        assert!(write_document(&dir.join("missing.md"), "x").is_err());
+        assert!(!dir.join("missing.md").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn writing_through_a_symlink_keeps_the_link() {
+        let dir = scratch("link");
+        let real = dir.join("real.md");
+        let link = dir.join("link.md");
+        std::fs::write(&real, "old").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        write_document(&link, "new").unwrap();
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "new");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

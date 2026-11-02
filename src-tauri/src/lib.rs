@@ -6,15 +6,17 @@
 //! open from the command line (which is how GNOME passes a double-clicked file).
 
 mod assets;
+mod save;
 mod themes;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::http::{header, Response, StatusCode};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 /// Sent to the frontend when the file on disk changes.
 const DOCUMENT_CHANGED: &str = "document-changed";
@@ -22,12 +24,17 @@ const DOCUMENT_CHANGED: &str = "document-changed";
 /// Sent when another `mdview file.md` was started: this window takes the file(s) as tabs.
 const OPEN_REQUEST: &str = "open-request";
 
+/// Sent when the user tried to close the window while a document has unsaved changes.
+const CLOSE_REQUESTED: &str = "close-requested";
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentPayload {
     path: String,
     name: String,
     text: String,
+    /// The editor may change this file: valid UTF-8, writable, a Markdown or text name.
+    editable: bool,
 }
 
 struct CurrentDocument {
@@ -40,26 +47,36 @@ struct CurrentDocument {
 #[derive(Default)]
 pub struct AppState {
     current: Mutex<Option<CurrentDocument>>,
+    /// Some tab has unsaved changes: closing the window must ask first.
+    dirty: AtomicBool,
 }
 
-/// Reads a document as UTF-8, replacing invalid bytes instead of failing.
-fn read_lossy(path: &Path) -> Result<String, String> {
+/// Reads a document as UTF-8, replacing invalid bytes instead of failing; also says
+/// whether the editor may touch the file.
+fn read_lossy(path: &Path) -> Result<(String, bool), String> {
     let bytes = std::fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let readonly = std::fs::metadata(path)
+        .map(|m| m.permissions().readonly())
+        .unwrap_or(true);
+    let editable = save::can_edit(path, &bytes, readonly);
     let text = String::from_utf8_lossy(&bytes).into_owned();
-    Ok(match text.strip_prefix('\u{feff}') {
+    let text = match text.strip_prefix('\u{feff}') {
         Some(without_bom) => without_bom.to_owned(),
         None => text,
-    })
+    };
+    Ok((text, editable))
 }
 
 fn payload_for(path: &Path) -> Result<DocumentPayload, String> {
+    let (text, editable) = read_lossy(path)?;
     Ok(DocumentPayload {
         path: path.display().to_string(),
         name: path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default(),
-        text: read_lossy(path)?,
+        text,
+        editable,
     })
 }
 
@@ -96,6 +113,31 @@ fn set_window_title(app: &AppHandle, name: &str) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.set_title(&format!("{name} — mdview"));
     }
+}
+
+/// Writes the editor's text over the document. Only an existing Markdown or text
+/// file is accepted (see `save.rs`); the page decides when to call it (Ctrl+S).
+#[tauri::command]
+fn save_document(path: String, text: String) -> Result<(), String> {
+    save::write_document(Path::new(&path), &text)
+}
+
+/// The page tells the shell whether any tab has unsaved changes (the window then
+/// asks before closing) and whether the shown one has (a dot in the title).
+#[tauri::command]
+fn report_dirty(app: AppHandle, state: State<'_, AppState>, any: bool, shown: bool) {
+    state.dirty.store(any, Ordering::SeqCst);
+    let name = state
+        .current
+        .lock()
+        .ok()
+        .and_then(|guard| {
+            guard
+                .as_ref()
+                .and_then(|c| c.path.file_name().map(|n| n.to_string_lossy().into_owned()))
+        })
+        .unwrap_or_default();
+    set_window_title(&app, &if shown { format!("● {name}") } else { name });
 }
 
 /// Opens a document: validates the path, starts watching it, returns its text.
@@ -262,7 +304,18 @@ pub fn run() {
                 },
             }
         })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.state::<AppState>().dirty.load(Ordering::SeqCst) {
+                    // The page asks Save / Discard / Cancel, then clears the flag and closes.
+                    api.prevent_close();
+                    let _ = window.emit(CLOSE_REQUESTED, ());
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
+            save_document,
+            report_dirty,
             open_document,
             read_document,
             initial_document,
