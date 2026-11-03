@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+  clampSplit,
   clampZoom,
   DEFAULT_SETTINGS,
   type KeyValueStore,
   loadSettings,
   nextWidth,
+  SPLIT_MAX,
+  SPLIT_MIN,
   saveSettings,
   ZOOM_MAX,
   ZOOM_MIN,
@@ -44,8 +47,16 @@ describe("zoom is clamped and rounded", () => {
 describe("settings persistence", () => {
   test("round trip", () => {
     const store = fakeStore();
-    saveSettings(store, { width: "wide", zoom: 20, theme: "sepia", toc: true });
-    expect(loadSettings(store)).toEqual({ width: "wide", zoom: 20, theme: "sepia", toc: true });
+    const saved = {
+      width: "wide",
+      zoom: 20,
+      theme: "sepia",
+      toc: true,
+      split: 0.4,
+      preview: false,
+    } as const;
+    saveSettings(store, saved);
+    expect(loadSettings(store)).toEqual(saved);
   });
 
   test("missing, corrupt or hostile values fall back to defaults", () => {
@@ -58,13 +69,25 @@ describe("settings persistence", () => {
     ).toEqual(DEFAULT_SETTINGS);
     expect(
       loadSettings(fakeStore({ "mdview.settings": JSON.stringify({ width: "full", zoom: 999 }) })),
-    ).toEqual({ width: "full", zoom: ZOOM_MAX, theme: "", toc: false });
+    ).toEqual({ ...DEFAULT_SETTINGS, width: "full", zoom: ZOOM_MAX });
     expect(loadSettings(fakeStore({ "mdview.settings": JSON.stringify({ theme: 5 }) })).theme).toBe(
       "",
     );
     expect(loadSettings(fakeStore({ "mdview.settings": JSON.stringify({ toc: "yes" }) })).toc).toBe(
       false,
     );
+  });
+
+  test("the split is kept inside its bounds and the preview flag must be a boolean", () => {
+    const load = (value: unknown) =>
+      loadSettings(fakeStore({ "mdview.settings": JSON.stringify(value) }));
+    expect(load({ split: 0.05 }).split).toBe(SPLIT_MIN);
+    expect(load({ split: 3 }).split).toBe(SPLIT_MAX);
+    expect(load({ split: "half" }).split).toBe(DEFAULT_SETTINGS.split);
+    expect(load({ split: 0.6 }).split).toBe(0.6);
+    expect(load({ preview: "no" }).preview).toBe(true);
+    expect(load({ preview: false }).preview).toBe(false);
+    expect(clampSplit(Number.NaN)).toBe(DEFAULT_SETTINGS.split);
   });
 
   test("a throwing store does not break the app", () => {

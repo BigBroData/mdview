@@ -1,5 +1,6 @@
 /**
- * Reader settings that survive restarts: text column width, text size, theme and contents panel.
+ * Reader settings that survive restarts: text column width, text size, theme, contents panel
+ * and how the editing area is shared between the editor and the preview.
  * Pure functions here; the storage is injected so tests need no browser.
  */
 export const WIDTHS = ["column", "wide", "full"] as const;
@@ -18,14 +19,29 @@ export interface Settings {
   theme: string;
   /** Whether the contents panel at the left edge is shown. */
   toc: boolean;
+  /** Share of the editing area taken by the editor; the preview gets the rest. */
+  split: number;
+  /** Whether the preview stands beside the editor; off means the editor alone. */
+  preview: boolean;
 }
+
+export const SPLIT_MIN = 0.25;
+export const SPLIT_MAX = 0.75;
+export const SPLIT_DEFAULT = 0.5;
 
 export const DEFAULT_SETTINGS: Settings = {
   width: "column",
   zoom: ZOOM_DEFAULT,
   theme: "",
   toc: false,
+  split: SPLIT_DEFAULT,
+  preview: true,
 };
+
+export function clampSplit(value: number): number {
+  if (!Number.isFinite(value)) return SPLIT_DEFAULT;
+  return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, value));
+}
 
 export function nextWidth(current: Width): Width {
   const index = WIDTHS.indexOf(current);
@@ -65,6 +81,10 @@ export function loadSettings(store: KeyValueStore | null): Settings {
           ? candidate.theme
           : DEFAULT_SETTINGS.theme,
       toc: typeof candidate.toc === "boolean" ? candidate.toc : DEFAULT_SETTINGS.toc,
+      split:
+        typeof candidate.split === "number" ? clampSplit(candidate.split) : DEFAULT_SETTINGS.split,
+      preview:
+        typeof candidate.preview === "boolean" ? candidate.preview : DEFAULT_SETTINGS.preview,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
