@@ -333,6 +333,16 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        // The window comes back at the size (and maximized or not) it was closed with. The position is
+        // left to the window manager, which places windows better than a saved coordinate can.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .build(),
+        )
         .manage(AppState::default())
         .register_uri_scheme_protocol("mdasset", |ctx, request| {
             let state = ctx.app_handle().state::<AppState>();
