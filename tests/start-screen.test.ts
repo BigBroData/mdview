@@ -54,6 +54,20 @@ describe("start screen commands", () => {
     expect(labels(commandGroups({ ...all, quit: false }))).not.toContain("Quit");
   });
 
+  test("every key the page handles by itself is described", () => {
+    const names = labels(commandGroups(all));
+    for (const label of [
+      "Next and previous match",
+      "Close search or list",
+      "Link in a new tab",
+      "Undo and redo",
+      "Quit",
+      "Close the tab",
+    ]) {
+      expect(names).toContain(label);
+    }
+  });
+
   test("the browser stage promises nothing it cannot do", () => {
     const groups = commandGroups(none);
     expect(groups.map((g) => g.title)).toEqual(["Reading"]);

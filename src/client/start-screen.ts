@@ -51,6 +51,8 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
       keys: [["F1"], ["?"]],
     },
     { label: "Find in the document", keys: [["Ctrl", "F"]] },
+    { label: "Next and previous match", keys: [["F3"], ["Shift", "F3"]] },
+    { label: "Close search or list", keys: [["Esc"]] },
     { label: "Contents panel", keys: [["Ctrl", "Shift", "O"]] },
     { label: "Switch theme", keys: [["Ctrl", "Shift", "T"]] },
     { label: "Column width", keys: [["Ctrl", "Shift", "W"]] },
@@ -63,6 +65,11 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
       ],
     },
   ];
+  if (caps.tabs)
+    reading.push({
+      label: "Link in a new tab",
+      keys: [["Ctrl", "Click"], ["Middle click"]],
+    });
   if (caps.tabs)
     reading.push({
       label: "Back and forward",
@@ -80,6 +87,13 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
       commands: [
         { label: "Edit the document", keys: [["Ctrl", "E"]] },
         { label: "Save", keys: [["Ctrl", "S"]] },
+        {
+          label: "Undo and redo",
+          keys: [
+            ["Ctrl", "Z"],
+            ["Ctrl", "Shift", "Z"],
+          ],
+        },
         { label: "Hide or show the preview", keys: [["Ctrl", "Shift", "E"]] },
       ],
     });
