@@ -33,7 +33,8 @@ export function createSplit(deps: SplitDeps): void {
 
   handle.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
-    event.preventDefault();
+    event.preventDefault(); // no text selection while dragging, but that also skips the focus
+    handle.focus({ preventScroll: true });
     handle.setPointerCapture(event.pointerId);
     dragging = {
       left: editor.getBoundingClientRect().left,
