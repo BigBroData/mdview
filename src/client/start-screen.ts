@@ -40,8 +40,13 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
     files.push({ label: "Next tab", keys: [["Ctrl", "Tab"]] });
     files.push({ label: "Previous tab", keys: [["Ctrl", "Shift", "Tab"]] });
     files.push({ label: "Close the tab", keys: [["Ctrl", "W"]] });
+    files.push({ label: "Tab by number", keys: [["Ctrl", "1…9"]] });
   }
   const reading: Command[] = [
+    {
+      label: "Show this list",
+      keys: [["F1"], ["?"]],
+    },
     { label: "Find in the document", keys: [["Ctrl", "F"]] },
     { label: "Contents panel", keys: [["Ctrl", "Shift", "O"]] },
     { label: "Switch theme", keys: [["Ctrl", "Shift", "T"]] },
@@ -101,6 +106,37 @@ function keysElement(keys: string[][]): HTMLElement {
   return wrap;
 }
 
+/** The command groups in two balanced columns; the start screen and the shortcuts window both show it. */
+export function createCommandList(caps: Capabilities): HTMLElement {
+  // Two columns, each group goes to the one with fewer rows so they end at about the same height.
+  const list = document.createElement("div");
+  list.className = "start__groups";
+  const columns = [document.createElement("div"), document.createElement("div")];
+  const rowCount = [0, 0];
+  for (const group of commandGroups(caps)) {
+    const section = document.createElement("section");
+    section.className = "start__group";
+    const title = document.createElement("h2");
+    title.className = "start__title";
+    title.textContent = group.title;
+    const rows = document.createElement("dl");
+    rows.className = "start__rows";
+    for (const command of group.commands) {
+      const term = document.createElement("dt");
+      term.textContent = command.label;
+      const keys = document.createElement("dd");
+      keys.append(keysElement(command.keys));
+      rows.append(term, keys);
+    }
+    section.append(title, rows);
+    const side = (rowCount[0] ?? 0) <= (rowCount[1] ?? 0) ? 0 : 1;
+    rowCount[side] = (rowCount[side] ?? 0) + group.commands.length + 1;
+    columns[side]?.append(section);
+  }
+  for (const column of columns) if (column.childElementCount > 0) list.append(column);
+  return list;
+}
+
 /** Builds the start screen; `onOpen` is the action of the main button (absent: no button, the host cannot open files). */
 export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTMLElement {
   const root = document.createElement("section");
@@ -134,32 +170,6 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
     root.append(drop);
   }
 
-  // Two columns, each group goes to the one with fewer rows so they end at about the same height.
-  const list = document.createElement("div");
-  list.className = "start__groups";
-  const columns = [document.createElement("div"), document.createElement("div")];
-  const rowCount = [0, 0];
-  for (const group of commandGroups(caps)) {
-    const section = document.createElement("section");
-    section.className = "start__group";
-    const title = document.createElement("h2");
-    title.className = "start__title";
-    title.textContent = group.title;
-    const rows = document.createElement("dl");
-    rows.className = "start__rows";
-    for (const command of group.commands) {
-      const term = document.createElement("dt");
-      term.textContent = command.label;
-      const keys = document.createElement("dd");
-      keys.append(keysElement(command.keys));
-      rows.append(term, keys);
-    }
-    section.append(title, rows);
-    const side = (rowCount[0] ?? 0) <= (rowCount[1] ?? 0) ? 0 : 1;
-    rowCount[side] = (rowCount[side] ?? 0) + group.commands.length + 1;
-    columns[side]?.append(section);
-  }
-  for (const column of columns) if (column.childElementCount > 0) list.append(column);
-  root.append(list);
+  root.append(createCommandList(caps));
   return root;
 }

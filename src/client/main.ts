@@ -4,6 +4,7 @@ import { isMdxName, renderMarkdown } from "../render/markdown.ts";
 import { createHtmlSanitizer } from "../render/sanitize.ts";
 import { createDiagrams } from "./diagrams.ts";
 import { createEditing } from "./editing.ts";
+import { createHelp } from "./help.ts";
 import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
 import { classifyLink } from "./links.ts";
@@ -24,7 +25,7 @@ import {
   ZOOM_STEP,
 } from "./settings.ts";
 import { createSplit } from "./split.ts";
-import { createStartScreen } from "./start-screen.ts";
+import { type Capabilities, createStartScreen } from "./start-screen.ts";
 import { createTabBar } from "./tabbar.ts";
 import { createTabs, type Tab } from "./tabs.ts";
 import { createThemePicker } from "./themepicker.ts";
@@ -407,16 +408,23 @@ function saveCopy(): void {
   });
 }
 
-function showEmptyState(): void {
-  const openFile = platform.openFile;
-  const caps = {
-    open: openFile !== undefined,
+/** What this host can do; decides which commands the start screen and the shortcuts window list. */
+function capabilities(): Capabilities {
+  return {
+    open: platform.openFile !== undefined,
     create: platform.createDocument !== undefined && platform.chooseSavePath !== undefined,
     drop: platform.onFileDropped !== undefined,
     tabs: platform.openPath !== undefined,
     edit: platform.saveDocument !== undefined,
     saveAs: platform.saveDocumentAs !== undefined && platform.chooseSavePath !== undefined,
   };
+}
+
+const help = createHelp(capabilities);
+
+function showEmptyState(): void {
+  const openFile = platform.openFile;
+  const caps = capabilities();
   const onOpen = openFile
     ? () =>
         serial(async () => {
@@ -564,9 +572,21 @@ function changeSettings(change: Partial<Settings>, hint: string): void {
   showStatus(hint, 1200);
 }
 
+/** The focus is where a typed "?" is text, not a command. */
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("input, textarea, [contenteditable], .cm-editor") !== null
+  );
+}
+
 function handleShortcut(event: KeyboardEvent): boolean {
   const ctrl = event.ctrlKey || event.metaKey;
   const key = chordKey(event);
+  if (key === "F1" || (event.key === "?" && !ctrl && !event.altKey && !isTyping(event.target))) {
+    help.toggle();
+    return true;
+  }
   if (key === "F3") {
     if (search.isOpen()) search.step(event.shiftKey ? -1 : 1);
     else search.open();

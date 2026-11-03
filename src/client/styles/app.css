@@ -615,7 +615,7 @@ p > img:only-child {
   margin-bottom: 1.4rem;
 }
 
-.start .start__title {
+.start__group .start__title {
   margin: 0 0 0.4rem;
   padding: 0;
   border: 0;
@@ -662,9 +662,28 @@ p > img:only-child {
   font-size: 0.8rem;
 }
 
-.start kbd {
+.start__keys kbd {
   font-size: 0.74rem;
   color: var(--fg);
+}
+
+/* The shortcuts window (F1): the start screen's command list in a box over the page. */
+.help__box {
+  width: min(46rem, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  outline: none;
+}
+
+.help__box .start__groups {
+  margin-top: 0.4rem;
+  padding-top: 0;
+  border-top: 0;
+  column-gap: 2.5rem;
+}
+
+.help__box .start__group:last-child {
+  margin-bottom: 0;
 }
 
 /* ---------- heading strip ---------- */

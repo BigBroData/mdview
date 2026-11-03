@@ -37,7 +37,7 @@ describe("cleanClass", () => {
   });
 
   test("applies in a rendered page", () => {
-    const html = render('<div class="modal big">x</div>' + NL + NL + '<p class="tabs">y</p>');
+    const html = render(`<div class="modal big">x</div>${NL}${NL}<p class="tabs">y</p>`);
     expect(html).not.toContain("modal");
     expect(html).not.toContain("tabs");
     expect(html).toContain('class="big"');

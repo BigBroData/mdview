@@ -24,6 +24,13 @@ describe("start screen commands", () => {
     ]);
   });
 
+  test("the shortcuts window opens with F1 or ? in every host", () => {
+    for (const caps of [all, none]) {
+      const commands = commandGroups(caps).flatMap((group) => group.commands);
+      expect(commands.find((c) => c.label === "Show this list")?.keys).toEqual([["F1"], ["?"]]);
+    }
+  });
+
   test("the browser stage promises nothing it cannot do", () => {
     const groups = commandGroups(none);
     expect(groups.map((g) => g.title)).toEqual(["Reading"]);
