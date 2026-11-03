@@ -2,6 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import DOMPurify from "dompurify";
 import { isMdxName, renderMarkdown } from "../render/markdown.ts";
 import { createHtmlSanitizer } from "../render/sanitize.ts";
+import { createDiagrams } from "./diagrams.ts";
 import { createEditing } from "./editing.ts";
 import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
@@ -67,6 +68,14 @@ const status = mustFind("status");
 const outline = createOutline(mustFind("outline"), doc, scroller);
 const search = createSearch(mustFind("search"), doc, scroller, outline);
 const toc = createToc(mustFind("toc"), doc, scroller, (id) => jumpToAnchor(id));
+// ```mermaid blocks become pictures once the library has loaded; the page is taller afterwards.
+const diagrams = createDiagrams({
+  root: doc,
+  onLayout() {
+    outline.update();
+    toc.update();
+  },
+});
 const platform: Platform = isTauri() ? createTauriPlatform() : createBrowserPlatform();
 const store = browserStore();
 let settings: Settings = loadSettings(store);
@@ -135,6 +144,7 @@ function render(document_: Document, options: RenderOptions = {}): void {
   scroller.scrollTop = scrollTop;
   outline.update();
   toc.update();
+  diagrams.update();
   search.refresh(); // the old <mark>s went away with the old HTML
   // Keyboard scrolling (PgDn, Space, arrows) goes to the focused scroller.
   if (document.activeElement === document.body) scroller.focus({ preventScroll: true });
@@ -456,8 +466,14 @@ function showTheme(name: string): string {
   if (themeStyle.textContent !== css) themeStyle.textContent = css;
   if (theme) document.documentElement.dataset.theme = theme.name;
   else delete document.documentElement.dataset.theme;
+  diagrams.refresh(); // the pictures use the page's colours
   return css;
 }
+
+// Without a chosen theme the page follows the system's light or dark; so do the pictures.
+window
+  .matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", () => diagrams.refresh());
 
 /** Reads the theme files again, so a file the user or an agent just wrote shows up. */
 async function refreshThemes(): Promise<void> {

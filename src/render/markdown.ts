@@ -74,6 +74,17 @@ export function createRenderer(options: { mdx?: boolean; html?: boolean } = {}):
     return `<div class="table-wrap"${line === null || line === undefined ? "" : ` data-line="${line}"`}><table>`;
   };
   md.renderer.rules.table_close = () => "</table></div>";
+  // ```mermaid blocks wait for the page to draw them (client/diagrams.ts); until then they are plain code.
+  const fence = md.renderer.rules.fence;
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    if (token && token.info.trim().split(/\s+/)[0] === "mermaid") {
+      const line = token.attrGet("data-line");
+      const mark = line === null || line === undefined ? "" : ` data-line="${line}"`;
+      return `<div class="mermaid-block"${mark}><pre><code>${md.utils.escapeHtml(token.content)}</code></pre></div>\n`;
+    }
+    return fence ? fence(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
+  };
   // Remember that raw HTML was used, so only such pages pay for sanitizing.
   for (const name of ["html_block", "html_inline"] as const) {
     md.renderer.rules[name] = (tokens, idx, _options, env) => {

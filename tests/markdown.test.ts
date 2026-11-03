@@ -115,3 +115,22 @@ describe("asset url helpers", () => {
     );
   });
 });
+
+describe("mermaid blocks", () => {
+  test("a mermaid fence becomes a block the page can draw, source kept as escaped code", () => {
+    const html = renderMarkdown("```mermaid\ngraph TD\n  A-->B\n```\n");
+    expect(html).toContain('<div class="mermaid-block">');
+    expect(html).toContain("<pre><code>graph TD\n  A--&gt;B\n</code></pre>");
+  });
+
+  test("it carries the source line for the editor's preview", () => {
+    const html = renderMarkdown("text\n\n```mermaid\ngraph TD\n```\n", { sourceLines: true });
+    expect(html).toContain('<div class="mermaid-block" data-line="2">');
+  });
+
+  test("other fences are unchanged", () => {
+    const html = renderMarkdown("```ts\nconst a = 1;\n```\n");
+    expect(html).not.toContain("mermaid-block");
+    expect(html).toContain("hljs-keyword");
+  });
+});

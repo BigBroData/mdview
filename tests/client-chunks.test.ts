@@ -9,7 +9,7 @@ describe("client bundle", () => {
       expect(name).toMatch(/^chunk-[\w-]+\.js$/);
       expect(code.length).toBeGreaterThan(0);
     }
-    const [first] = [...bundle.chunks.keys()];
-    expect(bundle.js).toContain(`./${first}`);
+    // Some chunks are only reached from other chunks; the entry names at least one of them.
+    expect([...bundle.chunks.keys()].some((name) => bundle.js.includes(`./${name}`))).toBe(true);
   });
 });

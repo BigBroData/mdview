@@ -1048,6 +1048,33 @@ mark.search-hit--current {
   }
 }
 
+/* ---------- diagrams (```mermaid, drawn by diagrams.ts) ---------- */
+
+.mermaid-block {
+  margin: 1.5rem 0;
+}
+
+/* Drawn: the picture takes the place of the source, centred and never wider than the column. */
+.mermaid-block[data-state="drawn"] {
+  text-align: center;
+  overflow-x: auto;
+}
+
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-block[data-state="failed"] pre {
+  margin-bottom: 0.4rem;
+}
+
+.mermaid-error {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--tok-variable);
+}
+
 /* ---------- editor (edit mode, Ctrl+E) ---------- */
 
 /* The editor stands left of the preview; they share the width as --split says (the editor's share). */
