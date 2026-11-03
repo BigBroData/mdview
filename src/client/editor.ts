@@ -11,6 +11,7 @@ import {
   runScopeHandlers,
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
+import { codeLanguage } from "./code-languages.ts";
 
 /**
  * The text editor (CodeMirror 6). One view serves every tab: each tab keeps
@@ -64,6 +65,40 @@ const markdownHighlight = HighlightStyle.define([
   { tag: [tags.list, tags.contentSeparator], color: "var(--tok-keyword)" },
   { tag: [tags.processingInstruction, tags.meta, tags.labelName], color: "var(--fg-muted)" },
   { tag: tags.comment, color: "var(--tok-comment)" },
+  // Code inside fences (code-languages.ts); the same palette as the preview's highlighter.
+  {
+    tag: [
+      tags.keyword,
+      tags.controlKeyword,
+      tags.operatorKeyword,
+      tags.definitionKeyword,
+      tags.moduleKeyword,
+      tags.self,
+      tags.tagName,
+    ],
+    color: "var(--tok-keyword)",
+  },
+  {
+    tag: [tags.string, tags.special(tags.string), tags.regexp, tags.attributeValue, tags.inserted],
+    color: "var(--tok-string)",
+  },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom, tags.changed], color: "var(--tok-number)" },
+  { tag: [tags.lineComment, tags.blockComment, tags.docComment], color: "var(--tok-comment)" },
+  {
+    tag: [
+      tags.function(tags.variableName),
+      tags.function(tags.propertyName),
+      tags.definition(tags.variableName),
+    ],
+    color: "var(--tok-title)",
+  },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: "var(--tok-type)" },
+  { tag: [tags.propertyName, tags.attributeName], color: "var(--tok-attr)" },
+  { tag: [tags.variableName, tags.deleted], color: "var(--tok-variable)" },
+  {
+    tag: [tags.operator, tags.punctuation, tags.angleBracket, tags.bracket],
+    color: "var(--fg-muted)",
+  },
 ]);
 
 const theme = EditorView.theme({
@@ -181,7 +216,7 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
     history(),
     drawSelection(),
     highlightActiveLine(),
-    markdown({ base: markdownLanguage }),
+    markdown({ base: markdownLanguage, codeLanguages: codeLanguage }),
     syntaxHighlighting(markdownHighlight),
     search({ top: true }),
     EditorView.lineWrapping,
