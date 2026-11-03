@@ -1,7 +1,7 @@
 {
   "name": "mdview",
-  "version": "0.2.0",
-  "description": "Lightweight, elegant Markdown viewer. Version 2: viewer and editor.",
+  "version": "0.3.0",
+  "description": "Lightweight, elegant Markdown viewer. Version 3: viewer and editor.",
   "type": "module",
   "private": true,
   "scripts": {
