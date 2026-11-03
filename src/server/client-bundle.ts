@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 /**
  * Bundles the browser client (TypeScript + vendor libraries) with Bun's bundler.
@@ -7,6 +7,8 @@ import { dirname, join } from "node:path";
 export interface ClientBundle {
   js: string;
   css: string;
+  /** Pieces the page loads on demand (code languages, diagrams), by file name. */
+  chunks: Map<string, string>;
 }
 
 const CLIENT_DIR = join(import.meta.dir, "..", "client");
@@ -19,6 +21,10 @@ export async function buildClient(minify = true): Promise<ClientBundle> {
     format: "esm",
     minify,
     sourcemap: "none",
+    // Lazy `import()` parts become files of their own, so a page that never needs a
+    // diagram or a code language never loads them.
+    splitting: true,
+    naming: { entry: "client.js", chunk: "chunk-[hash].js", asset: "[name]-[hash].[ext]" },
   });
   if (!result.success) {
     const messages = result.logs.map((l) => l.message).join("\n");
@@ -27,8 +33,12 @@ export async function buildClient(minify = true): Promise<ClientBundle> {
   const jsArtifact = result.outputs.find((o) => o.kind === "entry-point");
   if (!jsArtifact) throw new Error("Client bundle produced no entry point");
 
+  const chunks = new Map<string, string>();
+  for (const output of result.outputs) {
+    if (output.kind === "chunk") chunks.set(basename(output.path), await output.text());
+  }
   const css = await Bun.file(join(CLIENT_DIR, "styles", "app.css")).text();
-  return { js: await jsArtifact.text(), css };
+  return { js: await jsArtifact.text(), css, chunks };
 }
 
 export async function readIndexHtml(): Promise<string> {

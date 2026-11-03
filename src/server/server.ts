@@ -88,6 +88,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       if (path === "/client.js") {
         return text((await currentBundle()).js, "text/javascript; charset=utf-8");
       }
+      if (/^\/chunk-[\w-]+\.js$/.test(path)) {
+        const chunk = (await currentBundle()).chunks.get(path.slice(1));
+        if (chunk !== undefined) return text(chunk, "text/javascript; charset=utf-8");
+      }
       if (path === "/client.css") {
         return text((await currentBundle()).css, "text/css; charset=utf-8");
       }
