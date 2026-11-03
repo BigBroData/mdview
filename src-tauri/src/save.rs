@@ -153,6 +153,45 @@ pub fn write_document_as(path: &Path, text: &str) -> Result<PathBuf, String> {
     Ok(target)
 }
 
+/// "Save a copy" from reading mode: the bytes of `from` under a new name, exactly as they
+/// are (a file that is read-only or not UTF-8 can be copied, only the text editor cannot
+/// write it). An existing target is replaced by the same rules as any save, and never
+/// the source itself.
+pub fn copy_document(from: &Path, to: &Path) -> Result<PathBuf, String> {
+    let source = from
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
+    if !source.is_file() {
+        return Err(format!("not a file: {}", source.display()));
+    }
+    let target = checked_target(to)?;
+    let bytes =
+        std::fs::read(&source).map_err(|e| format!("cannot read {}: {e}", source.display()))?;
+    if std::fs::symlink_metadata(&target).is_err() {
+        create_new(&target, &bytes)?;
+        return Ok(target);
+    }
+    let target = target
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
+    if target == source {
+        return Err("that is the same file".to_owned());
+    }
+    let meta = std::fs::metadata(&target)
+        .map_err(|e| format!("cannot read {}: {e}", target.display()))?;
+    if !meta.is_file() {
+        return Err(format!("not a file: {}", target.display()));
+    }
+    if meta.permissions().readonly() {
+        return Err(format!("{} is read-only", target.display()));
+    }
+    if replace_atomically(&target, &bytes).is_err() {
+        std::fs::write(&target, &bytes)
+            .map_err(|e| format!("cannot write {}: {e}", target.display()))?;
+    }
+    Ok(target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,6 +272,39 @@ mod tests {
 
         let leftovers = std::fs::read_dir(&dir).unwrap().count();
         assert_eq!(leftovers, 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_copy_is_byte_for_byte_even_for_read_only_and_non_utf8_sources() {
+        let dir = scratch("copy");
+        let source = dir.join("src.md");
+        let bytes = [&BOM[..], b"caf\xe9 \r\n"].concat(); // BOM, CRLF and a Latin-1 byte
+        std::fs::write(&source, &bytes).unwrap();
+        let mut perms = std::fs::metadata(&source).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&source, perms).unwrap();
+
+        let copy = copy_document(&source, &dir.join("copy.md")).unwrap();
+        assert_eq!(std::fs::read(&copy).unwrap(), bytes);
+        assert!(copy.ends_with("copy.md"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_copy_never_lands_on_its_source_and_obeys_the_name_rules() {
+        let dir = scratch("copyrules");
+        let source = dir.join("src.md");
+        std::fs::write(&source, "text").unwrap();
+        assert!(copy_document(&source, &source).unwrap_err().contains("same file"));
+        assert!(copy_document(&source, &dir.join("copy.rs")).is_err());
+        assert!(copy_document(&dir.join("missing.md"), &dir.join("copy.md")).is_err());
+
+        let other = dir.join("other.md");
+        std::fs::write(&other, "old").unwrap();
+        copy_document(&source, &other).unwrap();
+        assert_eq!(std::fs::read_to_string(&other).unwrap(), "text");
+        assert_eq!(std::fs::read_to_string(&source).unwrap(), "text");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

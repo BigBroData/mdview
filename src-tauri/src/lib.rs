@@ -168,6 +168,13 @@ fn save_document_as(path: String, text: String) -> Result<String, String> {
     save::write_document_as(Path::new(&path), &text).map(|p| p.display().to_string())
 }
 
+/// "Save a copy" in reading mode: the document's bytes under a name chosen in the save dialog;
+/// returns the path to open.
+#[tauri::command]
+fn copy_document(from: String, to: String) -> Result<String, String> {
+    save::copy_document(Path::new(&from), Path::new(&to)).map(|p| p.display().to_string())
+}
+
 /// The page tells the shell whether any tab has unsaved changes (the window then
 /// asks before closing) and whether the shown one has (a dot in the title).
 #[tauri::command]
@@ -363,6 +370,7 @@ pub fn run() {
             save_document,
             create_document,
             save_document_as,
+            copy_document,
             report_dirty,
             open_document,
             read_document,
