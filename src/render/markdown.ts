@@ -21,6 +21,16 @@ export interface RenderOptions {
   mdx?: boolean;
   /** Mark top-level blocks with `data-line` (their first source line); the editor's preview uses it. */
   sourceLines?: boolean;
+  /**
+   * Raw HTML is shown only with this: when the document has any, the whole rendered page goes
+   * through it (src/render/sanitize.ts). Without it raw HTML stays visible as text.
+   */
+  sanitize?: (html: string, assetBase?: string) => string;
+}
+
+/** Set by the renderer when the document contains raw HTML. */
+interface RawHtmlEnv {
+  rawHtml?: boolean;
 }
 
 // The KaTeX plugin is a CommonJS module with `exports.default`. Bun's runtime
@@ -43,9 +53,9 @@ function highlight(code: string, lang: string): string {
   return ""; // markdown-it escapes the code itself
 }
 
-export function createRenderer(options: { mdx?: boolean } = {}): Renderer {
+export function createRenderer(options: { mdx?: boolean; html?: boolean } = {}): Renderer {
   const md = new MarkdownIt({
-    html: false, // raw HTML is shown as text; see docs/backlog.md
+    html: options.html === true, // only with a sanitizer behind it (renderMarkdown)
     linkify: true,
     typographer: false,
     highlight,
@@ -64,18 +74,30 @@ export function createRenderer(options: { mdx?: boolean } = {}): Renderer {
     return `<div class="table-wrap"${line === null || line === undefined ? "" : ` data-line="${line}"`}><table>`;
   };
   md.renderer.rules.table_close = () => "</table></div>";
+  // Remember that raw HTML was used, so only such pages pay for sanitizing.
+  for (const name of ["html_block", "html_inline"] as const) {
+    md.renderer.rules[name] = (tokens, idx, _options, env) => {
+      (env as RawHtmlEnv).rawHtml = true;
+      return tokens[idx]?.content ?? "";
+    };
+  }
   return md;
 }
 
 const shared = createRenderer();
 const sharedMdx = createRenderer({ mdx: true });
+const sharedHtml = createRenderer({ html: true });
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): string {
-  const env: AssetEnv & SourceLinesEnv = {
+  const env: AssetEnv & SourceLinesEnv & RawHtmlEnv = {
     assetBase: options.assetBase,
     sourceLines: options.sourceLines,
   };
-  return (options.mdx ? sharedMdx : shared).render(stripBom(source), env);
+  // MDX has its own way with tags (mdx.ts), so raw HTML is only for plain Markdown.
+  const sanitize = options.mdx ? undefined : options.sanitize;
+  const renderer = options.mdx ? sharedMdx : sanitize ? sharedHtml : shared;
+  const html = renderer.render(stripBom(source), env);
+  return sanitize && env.rawHtml ? sanitize(html, options.assetBase) : html;
 }
 
 export function isMdxName(name: string): boolean {

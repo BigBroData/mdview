@@ -1,5 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
+import DOMPurify from "dompurify";
 import { isMdxName, renderMarkdown } from "../render/markdown.ts";
+import { createHtmlSanitizer } from "../render/sanitize.ts";
 import { createEditing } from "./editing.ts";
 import type { Entry } from "./history.ts";
 import { chordKey } from "./keys.ts";
@@ -106,6 +108,9 @@ const editing = createEditing({
 let lastText: string | null = null;
 let currentPath = "";
 
+/** Raw HTML of a document passes through this (src/render/sanitize.ts). */
+const sanitizeHtml = createHtmlSanitizer(DOMPurify);
+
 interface RenderOptions {
   /** Render even if the text is the same as before (a different file). */
   force?: boolean;
@@ -122,6 +127,7 @@ function render(document_: Document, options: RenderOptions = {}): void {
   doc.innerHTML = renderMarkdown(document_.text, {
     assetBase: platform.assetBase,
     mdx: isMdxName(document_.name),
+    sanitize: sanitizeHtml,
     sourceLines: tabs.active()?.edit !== undefined, // the editor keeps the preview beside the cursor
   });
   // Synchronous on purpose: requestAnimationFrame does not fire in a hidden

@@ -134,6 +134,8 @@ body {
   margin: 0 auto;
   padding: 3.5rem var(--gutter) 6rem;
   overflow-wrap: break-word;
+  /* Raw HTML in a document can borrow our class names: whatever it positions stays inside the page. */
+  contain: layout;
 }
 
 /* Ctrl+Shift+W cycles the column width; the choice is remembered. */
