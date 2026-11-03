@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { detectEol, normalizeEol, previewScrollTop, withEol } from "../src/client/edit-logic.ts";
+import {
+  detectEol,
+  editorLineAt,
+  normalizeEol,
+  previewScrollTop,
+  withEol,
+} from "../src/client/edit-logic.ts";
 
 describe("line endings", () => {
   test("normalize turns CRLF and lone CR into LF", () => {
@@ -55,5 +61,39 @@ describe("previewScrollTop", () => {
       { line: 4, top: 130 },
     ];
     expect(Number.isFinite(previewScrollTop(twins, 4, end))).toBe(true);
+  });
+});
+
+describe("editorLineAt", () => {
+  const blocks = [
+    { line: 0, top: 0 },
+    { line: 10, top: 200 },
+    { line: 30, top: 600 },
+  ];
+  const end = { line: 50, top: 1000 };
+
+  test("is the inverse of previewScrollTop between and at blocks", () => {
+    for (const line of [0, 5, 10, 20, 30, 40, 50]) {
+      expect(editorLineAt(blocks, previewScrollTop(blocks, line, end), end)).toBeCloseTo(line);
+    }
+  });
+
+  test("no blocks, or above the first one: the first line", () => {
+    expect(editorLineAt([], 300, end)).toBe(0);
+    expect(editorLineAt([{ line: 3, top: 80 }], 50, end)).toBe(0);
+  });
+
+  test("at or past the end of the preview: the last line", () => {
+    expect(editorLineAt(blocks, 1000, end)).toBe(50);
+    expect(editorLineAt(blocks, 5000, end)).toBe(50);
+  });
+
+  test("blocks at the same height do not divide by zero", () => {
+    const flat = [
+      { line: 4, top: 100 },
+      { line: 7, top: 100 },
+    ];
+    expect(Number.isFinite(editorLineAt(flat, 100, end))).toBe(true);
+    expect(Number.isFinite(editorLineAt(flat, 500, end))).toBe(true);
   });
 });

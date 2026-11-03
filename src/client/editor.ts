@@ -39,6 +39,8 @@ export interface Editor {
   atBottom(): boolean;
   /** First visible source line, counted from 0, with the part of it scrolled off. */
   topLine(): number;
+  /** Scrolls so that this source line (counted from 0, fractional) is at the top; the cursor stays. */
+  scrollToLine(line: number): void;
   /** Puts the cursor on a source line (counted from 0) and scrolls it to the top. */
   revealLine(line: number): void;
   focus(): void;
@@ -241,6 +243,17 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): Editor {
       const part =
         block.height > 0 ? Math.min(1, Math.max(0, (top - block.top) / block.height)) : 0;
       return line + part;
+    },
+    scrollToLine(line) {
+      const doc = view.state.doc;
+      if (line >= doc.lines) {
+        view.scrollDOM.scrollTop = view.scrollDOM.scrollHeight;
+        return;
+      }
+      const whole = Math.max(0, Math.floor(line));
+      const block = view.lineBlockAt(doc.line(whole + 1).from);
+      view.scrollDOM.scrollTop =
+        block.top + Math.max(0, line - whole) * block.height + view.documentPadding.top;
     },
     revealLine(line) {
       const doc = view.state.doc;

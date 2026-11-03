@@ -1,5 +1,12 @@
 import { askUnsaved } from "./dialog.ts";
-import { type Block, detectEol, normalizeEol, previewScrollTop, withEol } from "./edit-logic.ts";
+import {
+  type Block,
+  detectEol,
+  editorLineAt,
+  normalizeEol,
+  previewScrollTop,
+  withEol,
+} from "./edit-logic.ts";
 import { type EditSession, isDirty } from "./edit-session.ts";
 import { createEditor, type Editor } from "./editor.ts";
 import { withMarkdownExtension } from "./paths.ts";
@@ -120,11 +127,8 @@ export function createEditing(deps: EditingDeps): Editing {
     syncPreview();
   }
 
-  /** Scrolls the preview to what the editor shows. */
-  function syncPreview(): void {
-    const e = editor;
-    const session = sessionOf(tabs.active());
-    if (!e || !session || root.dataset.preview === "off") return; // a hidden preview has no places to line up
+  /** Where the rendered blocks stand in the preview, with a sentinel for the end of the document. */
+  function previewPlaces(session: EditSession): { blocks: Block[]; end: Block; maxScroll: number } {
     const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
     const blocks: Block[] = [];
     for (const el of doc.querySelectorAll<HTMLElement>(":scope > [data-line]")) {
@@ -133,7 +137,23 @@ export function createEditing(deps: EditingDeps): Editing {
     const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     const last = blocks.at(-1);
     const end = { line: session.state.doc.lines, top: Math.max(last?.top ?? 0, maxScroll) };
+    return { blocks, end, maxScroll };
+  }
+
+  // The two panes drive each other. What one pane was last set to by the other is remembered,
+  // so the scroll event that setting causes is recognised as an echo and not answered.
+  const ECHO = 2; // px
+  let previewSet = Number.NEGATIVE_INFINITY;
+  let editorSet = Number.NEGATIVE_INFINITY;
+
+  /** Scrolls the preview to what the editor shows. */
+  function syncPreview(): void {
+    const e = editor;
+    const session = sessionOf(tabs.active());
+    if (!e || !session || root.dataset.preview === "off") return; // a hidden preview has no places to line up
+    const { blocks, end, maxScroll } = previewPlaces(session);
     scroller.scrollTop = e.atBottom() ? maxScroll : previewScrollTop(blocks, e.topLine(), end);
+    previewSet = scroller.scrollTop;
   }
 
   function onScroll(): void {
@@ -141,9 +161,36 @@ export function createEditing(deps: EditingDeps): Editing {
     syncQueued = true;
     requestAnimationFrame(() => {
       syncQueued = false;
+      if (editor && Math.abs(editor.scrollTop() - editorSet) < ECHO) return; // the preview moved it
       syncPreview();
     });
   }
+
+  /** The reader scrolled the preview by hand: the editor follows. */
+  function onPreviewScroll(): void {
+    const e = editor;
+    const session = sessionOf(tabs.active());
+    if (!e || !session || root.dataset.preview === "off") return;
+    if (Math.abs(scroller.scrollTop - previewSet) < ECHO) return; // set by the editor, or by a render
+    const { blocks, end, maxScroll } = previewPlaces(session);
+    const bottom = maxScroll > 0 && scroller.scrollTop >= maxScroll - 1;
+    e.scrollToLine(bottom ? end.line : editorLineAt(blocks, scroller.scrollTop, end));
+    editorSet = e.scrollTop();
+    previewSet = scroller.scrollTop;
+  }
+  let previewScrollQueued = false;
+  scroller.addEventListener(
+    "scroll",
+    () => {
+      if (previewScrollQueued) return;
+      previewScrollQueued = true;
+      requestAnimationFrame(() => {
+        previewScrollQueued = false;
+        onPreviewScroll();
+      });
+    },
+    { passive: true },
+  );
 
   function onChange(): void {
     const session = sessionOf(tabs.active());

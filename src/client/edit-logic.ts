@@ -47,3 +47,26 @@ export function previewScrollTop(blocks: readonly Block[], topLine: number, end:
   const fraction = Math.min(1, Math.max(0, (topLine - from.line) / span));
   return from.top + (to.top - from.top) * fraction;
 }
+
+/**
+ * The inverse of `previewScrollTop`: the source line (fractional) that stands at the top of
+ * the preview when it is scrolled to `scrollTop`; the editor scrolls there when the reader
+ * moves the preview by hand. Above the first block it is the first line, past the end of the
+ * last block it runs on to `end`.
+ */
+export function editorLineAt(blocks: readonly Block[], scrollTop: number, end: Block): number {
+  const first = blocks[0];
+  if (!first || scrollTop <= first.top) return 0;
+  if (scrollTop >= end.top) return end.line;
+  let index = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if ((blocks[i]?.top ?? Number.POSITIVE_INFINITY) <= scrollTop) index = i;
+    else break;
+  }
+  const from = blocks[index] ?? first;
+  const to = blocks[index + 1] ?? end;
+  const span = to.top - from.top;
+  if (span <= 0) return from.line;
+  const fraction = Math.min(1, Math.max(0, (scrollTop - from.top) / span));
+  return from.line + (to.line - from.line) * fraction;
+}
