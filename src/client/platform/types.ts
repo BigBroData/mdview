@@ -32,6 +32,8 @@ export interface Platform {
   initialPaths?: () => Promise<string[]>;
   /** Another start of the app handed its documents to this window. */
   onOpenRequest?: (handler: (paths: string[]) => void) => void;
+  /** Tells the host that no document is open any more (the last tab was closed). */
+  closeDocument?: () => Promise<void>;
   /** Closes the window; absent where the page does not own one. */
   closeWindow?: () => void;
   /** Opens a document by absolute path (a drop, or Back/Forward in the history). */

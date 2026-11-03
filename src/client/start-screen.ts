@@ -17,6 +17,8 @@ export interface Capabilities {
   edit: boolean;
   /** A document can be saved under another name (Ctrl+Shift+S): the editor's text, or a copy while reading. */
   saveAs: boolean;
+  /** The window can be closed from the keyboard (Ctrl+Q). */
+  quit: boolean;
 }
 
 /** One command: its name and the key combinations that run it (alternatives). */
@@ -42,6 +44,7 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
     files.push({ label: "Close the tab", keys: [["Ctrl", "W"]] });
     files.push({ label: "Tab by number", keys: [["Ctrl", "1…9"]] });
   }
+  if (caps.quit) files.push({ label: "Quit", keys: [["Ctrl", "Q"]] });
   const reading: Command[] = [
     {
       label: "Show this list",

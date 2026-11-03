@@ -40,6 +40,7 @@ export function createTauriPlatform(): Platform {
     onCloseRequested(handler) {
       void listen("close-requested", () => handler());
     },
+    closeDocument: () => invoke<void>("close_document"),
     closeWindow: () => void invoke<void>("close_window"),
     onOpenRequest(handler) {
       void listen<string[]>("open-request", (event) => handler(event.payload));

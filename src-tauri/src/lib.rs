@@ -143,7 +143,12 @@ fn watch(app: AppHandle, path: &Path) -> Result<RecommendedWatcher, String> {
 
 fn set_window_title(app: &AppHandle, name: &str) {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_title(&format!("{name} — mdview"));
+        let title = if name.trim_start_matches("● ").is_empty() {
+            "mdview".to_owned()
+        } else {
+            format!("{name} — mdview")
+        };
+        let _ = window.set_title(&title);
     }
 }
 
@@ -216,6 +221,15 @@ fn open_document(
     });
     set_window_title(&app, &payload.name);
     Ok(payload)
+}
+
+/// The last tab was closed: nothing is open any more, so stop watching the file and show the bare title.
+#[tauri::command]
+fn close_document(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    *state.current.lock().map_err(|_| "state poisoned")? = None;
+    state.dirty.store(false, Ordering::SeqCst);
+    set_window_title(&app, "");
+    Ok(())
 }
 
 /// Re-reads the currently open document (after a `document-changed` event).
@@ -384,6 +398,7 @@ pub fn run() {
             report_dirty,
             open_document,
             read_document,
+            close_document,
             initial_document,
             extra_documents,
             close_window,

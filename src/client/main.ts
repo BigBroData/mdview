@@ -280,13 +280,6 @@ async function closeTab(id: number): Promise<void> {
   const closing = tabs.all().find((tab) => tab.id === id);
   if (!closing) return;
   if (!(await editing.confirmClose([closing]))) return;
-  if (tabs.all().length === 1) {
-    closing.edit = undefined; // nothing left to protect: the host may close the window
-    editing.refresh();
-    await platform.reportDirty?.(false, false);
-    platform.closeWindow?.(); // closing the last tab closes the window
-    return;
-  }
   const wasActive = tabs.active()?.id === id;
   if (wasActive) editing.park(closing);
   let next = tabs.remove(id);
@@ -294,12 +287,24 @@ async function closeTab(id: number): Promise<void> {
     // A tab whose file vanished cannot be shown; drop it too and try its neighbour.
     while (next && !(await showTab(next))) next = tabs.remove(next.id);
     if (!next) {
+      // The last tab closed: the window stays, with the start screen (Ctrl+Q quits).
       lastText = null;
+      document.title = "mdview";
       showEmptyState();
     }
   }
   editing.refresh();
   tabBar.update(tabs.all(), tabs.active()?.id);
+  if (tabs.all().length === 0) await platform.closeDocument?.();
+}
+
+/** Ctrl+Q and the window's own close button: ask about unsaved work, then close the window. */
+function quit(): void {
+  serial(async () => {
+    if (!(await editing.confirmClose(tabs.all()))) return;
+    await platform.reportDirty?.(false, false);
+    platform.closeWindow?.();
+  });
 }
 
 /** Back / forward: same document just scrolls, another one is loaded. */
@@ -417,6 +422,7 @@ function capabilities(): Capabilities {
     tabs: platform.openPath !== undefined,
     edit: platform.saveDocument !== undefined,
     saveAs: platform.saveDocumentAs !== undefined && platform.chooseSavePath !== undefined,
+    quit: platform.closeWindow !== undefined,
   };
 }
 
@@ -639,7 +645,11 @@ function handleShortcut(event: KeyboardEvent): boolean {
     });
     return true;
   }
-  if (!event.shiftKey && key === "w" && (tabs.all().length > 1 || platform.closeWindow)) {
+  if (!event.shiftKey && key === "q" && platform.closeWindow) {
+    quit();
+    return true;
+  }
+  if (!event.shiftKey && key === "w" && tabs.active()) {
     const tab = tabs.active();
     if (tab) serial(() => closeTab(tab.id));
     return true;
@@ -708,13 +718,7 @@ platform.watch(() => {
 });
 
 // The window was asked to close: if anything is unsaved, ask first.
-platform.onCloseRequested?.(() => {
-  serial(async () => {
-    if (!(await editing.confirmClose(tabs.all()))) return;
-    await platform.reportDirty?.(false, false);
-    platform.closeWindow?.();
-  });
-});
+platform.onCloseRequested?.(quit);
 
 window.addEventListener("keydown", (event) => {
   if (event.defaultPrevented) return; // the editor already took this key

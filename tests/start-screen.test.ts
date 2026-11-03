@@ -5,8 +5,24 @@ const labels = (groups: ReturnType<typeof commandGroups>) =>
   groups.flatMap((group) => group.commands.map((command) => command.label));
 
 describe("start screen commands", () => {
-  const all = { open: true, create: true, drop: true, tabs: true, edit: true, saveAs: true };
-  const none = { open: false, create: false, drop: false, tabs: false, edit: false, saveAs: false };
+  const all = {
+    open: true,
+    create: true,
+    drop: true,
+    tabs: true,
+    edit: true,
+    saveAs: true,
+    quit: true,
+  };
+  const none = {
+    open: false,
+    create: false,
+    drop: false,
+    tabs: false,
+    edit: false,
+    saveAs: false,
+    quit: false,
+  };
 
   test("the desktop window lists files, reading and editing commands", () => {
     const groups = commandGroups(all);
@@ -29,6 +45,13 @@ describe("start screen commands", () => {
       const commands = commandGroups(caps).flatMap((group) => group.commands);
       expect(commands.find((c) => c.label === "Show this list")?.keys).toEqual([["F1"], ["?"]]);
     }
+  });
+
+  test("Quit is listed only where the window can be closed, and Close the tab is not Quit", () => {
+    const commands = commandGroups(all).flatMap((group) => group.commands);
+    expect(commands.find((c) => c.label === "Quit")?.keys).toEqual([["Ctrl", "Q"]]);
+    expect(commands.find((c) => c.label === "Close the tab")?.keys).toEqual([["Ctrl", "W"]]);
+    expect(labels(commandGroups({ ...all, quit: false }))).not.toContain("Quit");
   });
 
   test("the browser stage promises nothing it cannot do", () => {
