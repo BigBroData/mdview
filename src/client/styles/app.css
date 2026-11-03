@@ -1232,6 +1232,8 @@ mark.search-hit--current {
   justify-content: center;
   padding: 1rem;
   background: rgba(0, 0, 0, 0.35);
+  /* Its own layer, so the scroll bars of the panes behind do not show through (WebKitGTK). */
+  transform: translateZ(0);
 }
 
 .modal__box {
