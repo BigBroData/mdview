@@ -147,6 +147,11 @@ body {
   max-width: none;
 }
 
+/* The start screen lists commands in two columns, which need more room than a text column. */
+.document:has(> .start) {
+  max-width: 58rem;
+}
+
 @media (max-width: 600px) {
   .document {
     padding-top: 2rem;
