@@ -114,7 +114,14 @@ export function createDiagrams(deps: DiagramDeps): Diagrams {
   function fail(block: HTMLElement, source: string, error: unknown): void {
     block.dataset.source = source;
     block.dataset.state = "failed";
-    const message = String(error instanceof Error ? error.message : error).split("\n")[0] ?? "";
+    // Mermaid's message starts with where it failed and ends with what it expected; the middle repeats the source.
+    const lines = String(error instanceof Error ? error.message : error)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+    const message = [...new Set([lines[0], lines.length > 1 ? lines.at(-1) : undefined])]
+      .filter(Boolean)
+      .join(" ");
     let note = block.querySelector<HTMLElement>(".mermaid-error");
     if (!note) {
       note = document.createElement("p");

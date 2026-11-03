@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import createDOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
 import { renderMarkdown } from "../src/render/markdown.ts";
-import { cleanStyle, createHtmlSanitizer } from "../src/render/sanitize.ts";
+import { cleanClass, cleanStyle, createHtmlSanitizer } from "../src/render/sanitize.ts";
 
+const NL = String.fromCharCode(10);
 const purify = createDOMPurify(new JSDOM("").window as unknown as Window & typeof globalThis);
 const sanitize = createHtmlSanitizer(purify);
 const render = (source: string, assetBase = "mdasset://localhost") =>
@@ -21,6 +22,25 @@ describe("cleanStyle", () => {
     expect(cleanStyle("background: u\\72l(x)")).toBe("");
     expect(cleanStyle("width: expression(alert(1))")).toBe("");
     expect(cleanStyle("garbage; : nothing")).toBe("");
+  });
+});
+
+describe("cleanClass", () => {
+  test("drops the application's own class names, keeps the rest", () => {
+    expect(cleanClass("modal")).toBe("");
+    expect(cleanClass("a tabs b")).toBe("a b");
+    expect(cleanClass("tab__dirty status-bar editor__host")).toBe("");
+    expect(cleanClass("hljs-keyword katex mord table-wrap mermaid-block")).toBe(
+      "hljs-keyword katex mord table-wrap mermaid-block",
+    );
+    expect(cleanClass("table tabular")).toBe("table tabular");
+  });
+
+  test("applies in a rendered page", () => {
+    const html = render('<div class="modal big">x</div>' + NL + NL + '<p class="tabs">y</p>');
+    expect(html).not.toContain("modal");
+    expect(html).not.toContain("tabs");
+    expect(html).toContain('class="big"');
   });
 });
 

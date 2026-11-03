@@ -32,6 +32,19 @@ export function cleanStyle(style: string): string {
     .join(";");
 }
 
+// Class names of the application's own chrome. A document's HTML may not borrow them: a <div class="modal">
+// would dim the page and a <nav class="tabs"> would look like part of the application.
+const CHROME_CLASS =
+  /^(modal|status|tabs?$|tab__|toc|outline|search|themes?$|editor|start|reader$|scroller$|document$|cm-)/;
+
+/** A class attribute without the names that belong to the application's interface. */
+export function cleanClass(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter((name) => name !== "" && !CHROME_CLASS.test(name))
+    .join(" ");
+}
+
 const FORBIDDEN_TAGS = [
   "style",
   "link",
@@ -66,6 +79,7 @@ export function createHtmlSanitizer(purify: Purify): (html: string, assetBase?: 
 
   purify.addHook("uponSanitizeAttribute", (_node, data) => {
     if (data.attrName === "style") data.attrValue = cleanStyle(data.attrValue);
+    else if (data.attrName === "class") data.attrValue = cleanClass(data.attrValue);
   });
   purify.addHook("afterSanitizeAttributes", (node) => {
     const name = node.nodeName.toUpperCase();
