@@ -27,6 +27,7 @@ export function createTauriPlatform(): Platform {
     saveDocument: (path, text) => invoke<void>("save_document", { path, text }),
     createDocument: (path) => invoke<string>("create_document", { path }),
     saveDocumentAs: (path, text) => invoke<string>("save_document_as", { path, text }),
+    copyDocument: (from, to) => invoke<string>("copy_document", { from, to }),
     async chooseSavePath(title, suggested) {
       const chosen = await save({
         title,

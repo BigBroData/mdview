@@ -15,7 +15,7 @@ export interface Capabilities {
   tabs: boolean;
   /** Documents can be written back: the editor is available. */
   edit: boolean;
-  /** The text can be written to another file (Ctrl+Shift+S). */
+  /** A document can be saved under another name (Ctrl+Shift+S): the editor's text, or a copy while reading. */
   saveAs: boolean;
 }
 
@@ -34,6 +34,8 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
   // "Open a file" is the main button of the screen, not a row of the list.
   const files: Command[] = [];
   if (caps.create) files.push({ label: "New file", keys: [["Ctrl", "N"]] });
+  // Reading mode saves a copy, the editor saves the text under the new name.
+  if (caps.saveAs) files.push({ label: "Save as", keys: [["Ctrl", "Shift", "S"]] });
   if (caps.tabs) {
     files.push({ label: "Next tab", keys: [["Ctrl", "Tab"]] });
     files.push({ label: "Previous tab", keys: [["Ctrl", "Shift", "Tab"]] });
@@ -65,12 +67,14 @@ export function commandGroups(caps: Capabilities): CommandGroup[] {
   if (files.length > 0) groups.push({ title: "Files", commands: files });
   groups.push({ title: "Reading", commands: reading });
   if (caps.edit) {
-    const editing: Command[] = [
-      { label: "Edit the document", keys: [["Ctrl", "E"]] },
-      { label: "Save", keys: [["Ctrl", "S"]] },
-    ];
-    if (caps.saveAs) editing.push({ label: "Save as", keys: [["Ctrl", "Shift", "S"]] });
-    groups.push({ title: "Editing", commands: editing });
+    groups.push({
+      title: "Editing",
+      commands: [
+        { label: "Edit the document", keys: [["Ctrl", "E"]] },
+        { label: "Save", keys: [["Ctrl", "S"]] },
+        { label: "Hide or show the preview", keys: [["Ctrl", "Shift", "E"]] },
+      ],
+    });
   }
   return groups;
 }

@@ -19,6 +19,9 @@ describe("start screen commands", () => {
     const commands = commandGroups(all).flatMap((group) => group.commands);
     expect(commands.find((c) => c.label === "New file")?.keys).toEqual([["Ctrl", "N"]]);
     expect(commands.find((c) => c.label === "Save as")?.keys).toEqual([["Ctrl", "Shift", "S"]]);
+    expect(commands.find((c) => c.label === "Hide or show the preview")?.keys).toEqual([
+      ["Ctrl", "Shift", "E"],
+    ]);
   });
 
   test("the browser stage promises nothing it cannot do", () => {

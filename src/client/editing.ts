@@ -58,6 +58,8 @@ export interface Editing {
   revealHeading(id: string): void;
   /** Recomputes the unsaved markers (tabs, title, host); call after any tab change. */
   refresh(): void;
+  /** The preview was shown, hidden or resized: lines it up with the editor again. */
+  previewToggled(): void;
 }
 
 export function createEditing(deps: EditingDeps): Editing {
@@ -122,7 +124,7 @@ export function createEditing(deps: EditingDeps): Editing {
   function syncPreview(): void {
     const e = editor;
     const session = sessionOf(tabs.active());
-    if (!e || !session) return;
+    if (!e || !session || root.dataset.preview === "off") return; // a hidden preview has no places to line up
     const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
     const blocks: Block[] = [];
     for (const el of doc.querySelectorAll<HTMLElement>(":scope > [data-line]")) {
@@ -377,5 +379,6 @@ export function createEditing(deps: EditingDeps): Editing {
     confirmClose,
     revealHeading,
     refresh,
+    previewToggled: syncPreview,
   };
 }

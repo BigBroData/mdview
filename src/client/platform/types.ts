@@ -48,6 +48,8 @@ export interface Platform {
   createDocument?: (path: string) => Promise<string>;
   /** Writes the text to a new or existing file ("Save as"); returns the path to open. */
   saveDocumentAs?: (path: string, text: string) => Promise<string>;
+  /** Copies a document byte for byte to a new or existing file; returns the path to open. */
+  copyDocument?: (from: string, to: string) => Promise<string>;
   /** Tells the host whether any tab (`any`) or the shown one (`shown`) has unsaved changes. */
   reportDirty?: (any: boolean, shown: boolean) => Promise<void>;
   /** The user tried to close the window while something is unsaved. */

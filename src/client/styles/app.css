@@ -1048,9 +1048,9 @@ mark.search-hit--current {
 
 /* ---------- editor (edit mode, Ctrl+E) ---------- */
 
-/* The editor stands left of the preview; both share the width. */
+/* The editor stands left of the preview; they share the width as --split says (the editor's share). */
 .editor {
-  flex: 1 1 50%;
+  flex: var(--split, 0.5) 1 0;
   min-width: 18rem;
   display: flex;
   flex-direction: column;
@@ -1062,7 +1062,53 @@ mark.search-hit--current {
 }
 
 :root[data-mode="edit"] .scroller {
-  flex: 1 1 50%;
+  flex: calc(1 - var(--split, 0.5)) 1 0;
+}
+
+/* The bar between them: a wide grab area that takes no room, a thin line that shows on hover. */
+.editor__split {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 0.5rem;
+  margin: 0 -0.25rem;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.editor__split::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.editor__split:hover::after,
+.editor__split:focus-visible::after,
+.editor__split[data-dragging]::after {
+  background: var(--accent);
+}
+
+/* Editor alone: the preview steps aside and the editor takes the whole width. */
+:root[data-mode="edit"][data-preview="off"] .scroller,
+:root:not([data-mode="edit"]) .editor__split,
+:root[data-preview="off"] .editor__split {
+  display: none;
+}
+
+:root[data-mode="edit"][data-preview="off"] .editor {
+  flex: 1 1 0;
+  border-right: none;
+}
+
+.editor__button[aria-pressed="false"] {
+  color: var(--fg-muted);
+  background: transparent;
 }
 
 .editor__bar {
@@ -1302,6 +1348,7 @@ mark.search-hit--current {
   .tabs,
   .toc,
   .editor,
+  .editor__split,
   .modal {
     display: none;
   }

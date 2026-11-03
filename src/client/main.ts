@@ -20,6 +20,7 @@ import {
   ZOOM_DEFAULT,
   ZOOM_STEP,
 } from "./settings.ts";
+import { createSplit } from "./split.ts";
 import { createStartScreen } from "./start-screen.ts";
 import { createTabBar } from "./tabbar.ts";
 import { createTabs, type Tab } from "./tabs.ts";
@@ -371,6 +372,25 @@ function newFile(): void {
   });
 }
 
+/** Ctrl+Shift+S while reading: copies the shown file under a new name and opens the copy in a tab. */
+function saveCopy(): void {
+  const { chooseSavePath, copyDocument, openPath } = platform;
+  const tab = tabs.active();
+  if (!chooseSavePath || !copyDocument || !openPath || !tab) return;
+  serial(async () => {
+    const chosen = await chooseSavePath("Save a copy", tab.path);
+    if (chosen === null) return;
+    let path: string;
+    try {
+      path = await copyDocument(tab.path, withMarkdownExtension(chosen));
+    } catch (error) {
+      showStatus(`Cannot save a copy: ${String(error)}`, 6000);
+      return;
+    }
+    await openInTab(() => openPath(path), `Cannot open ${path}`);
+  });
+}
+
 function showEmptyState(): void {
   const openFile = platform.openFile;
   const caps = {
@@ -464,14 +484,57 @@ const themePicker = createThemePicker(mustFind("themes"), {
 
 const WIDTH_LABEL = { column: "Width: column", wide: "Width: wide", full: "Width: full" } as const;
 
+const previewButton = mustFind("editor-preview");
+const splitHandle = mustFind("editor-split");
+
+/** The editing area: how it is shared, and whether the preview is there at all. */
+function applyLayout(): void {
+  const root = document.documentElement;
+  root.style.setProperty("--split", String(settings.split));
+  if (settings.preview) delete root.dataset.preview;
+  else root.dataset.preview = "off";
+  previewButton.setAttribute("aria-pressed", String(settings.preview));
+  splitHandle.setAttribute("aria-valuenow", String(Math.round(settings.split * 100)));
+}
+
 function applySettings(): void {
   document.documentElement.dataset.width = settings.width;
   document.documentElement.style.setProperty("--text-size", `${settings.zoom}px`);
+  applyLayout();
   toc.setVisible(settings.toc);
   saveSettings(store, settings);
   outline.update(); // heading positions change with width and size
   toc.update();
 }
+
+/** Ctrl+Shift+E and the "Preview" button: the editor alone, or beside its preview. */
+function togglePreview(): void {
+  if (!editing.isEditing()) {
+    showStatus("The preview can be hidden while editing (Ctrl+E).", 2500);
+    return;
+  }
+  changeSettings(
+    { preview: !settings.preview },
+    settings.preview ? "Preview: hidden" : "Preview: shown",
+  );
+  editing.previewToggled();
+}
+
+createSplit({
+  handle: splitHandle,
+  editor: mustFind("editor"),
+  scroller,
+  get: () => settings.split,
+  set(share, final) {
+    settings = { ...settings, split: share };
+    applyLayout();
+    if (final) {
+      saveSettings(store, settings);
+      editing.previewToggled(); // the preview moved: line it up with the editor again
+    }
+  },
+});
+previewButton.addEventListener("click", () => togglePreview());
 
 function changeSettings(change: Partial<Settings>, hint: string): void {
   settings = { ...settings, ...change };
@@ -512,10 +575,16 @@ function handleShortcut(event: KeyboardEvent): boolean {
     newFile();
     return true;
   }
-  if (event.shiftKey && key === "s" && editing.isEditing()) {
-    serial(async () => {
-      await editing.saveAs();
-    });
+  if (event.shiftKey && key === "s" && tabs.active() && platform.saveDocumentAs) {
+    if (editing.isEditing()) {
+      serial(async () => {
+        await editing.saveAs();
+      });
+    } else saveCopy();
+    return true;
+  }
+  if (event.shiftKey && key === "e") {
+    togglePreview();
     return true;
   }
   if (!event.shiftKey && key === "e") {
