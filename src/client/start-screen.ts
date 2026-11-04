@@ -155,20 +155,45 @@ export function createCommandList(caps: Capabilities): HTMLElement {
 }
 
 /**
- * The mark above the name: a sheet with a turned-down corner, filled with the blue-to-lilac
- * gradient of the demo picture (docs: demo A.md). Static markup, no document text goes in.
+ * The application's own icon (src-tauri/icons/mdview.svg, the source of every PNG), shown beside
+ * the name. Static markup: no text of any document goes into it.
  */
-const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 92" width="72" height="92" aria-hidden="true" focusable="false">
+const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="start-sheet" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3c6ea5"/>
-      <stop offset="0.5" stop-color="#8287c1"/>
-      <stop offset="1" stop-color="#c8a0dc"/>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3f84e0"/>
+      <stop offset="1" stop-color="#2255b4"/>
     </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.2"/>
+      <feOffset dy="2.5" result="blur"/>
+      <feComponentTransfer in="blur" result="dark">
+        <feFuncA type="linear" slope="0.38"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="dark"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <path d="M8 0 H46 L72 26 V84 A8 8 0 0 1 64 92 H8 A8 8 0 0 1 0 84 V8 A8 8 0 0 1 8 0 Z" fill="url(#start-sheet)"/>
-  <path d="M46 0 V20 A6 6 0 0 0 52 26 H72 Z" fill="#ffffff" fill-opacity="0.42"/>
-  <path d="M46 0 V20 A6 6 0 0 0 52 26 H72" fill="none" stroke="#000000" stroke-opacity="0.12"/>
+
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#tile)"/>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#gloss)"/>
+  <rect x="8.5" y="8.5" width="111" height="111" rx="25.5" fill="none" stroke="#000000" stroke-opacity="0.10"/>
+
+  <g filter="url(#shadow)">
+    <path d="M40 24 h36 l18 18 v56 a6 6 0 0 1 -6 6 h-48 a6 6 0 0 1 -6 -6 v-68 a6 6 0 0 1 6 -6 z" fill="#fbfbfa"/>
+    <path d="M76 24 v12 a6 6 0 0 0 6 6 h12 z" fill="#d5dae1"/>
+  </g>
+
+  <path d="M47 76 V49 L62 65 L77 49 V76" fill="none" stroke="#2a66c4" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="46" y="85" width="36" height="4" rx="2" fill="#c4c9d0"/>
+  <rect x="46" y="93" width="26" height="4" rx="2" fill="#c4c9d0"/>
 </svg>`;
 
 /** Builds the start screen; `onOpen` is the action of the main button (absent: no button, the host cannot open files). */
@@ -178,17 +203,19 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
 
   const head = document.createElement("header");
   head.className = "start__head";
-  const logo = document.createElement("div");
-  logo.className = "start__logo";
-  logo.innerHTML = LOGO;
-  head.append(logo);
+  const brand = document.createElement("div");
+  brand.className = "start__brand";
+  const icon = document.createElement("span");
+  icon.className = "start__icon";
+  icon.innerHTML = ICON;
   const name = document.createElement("h1");
   name.className = "start__name";
   name.textContent = "mdview";
+  brand.append(icon, name);
   const tagline = document.createElement("p");
   tagline.className = "start__tagline";
   tagline.textContent = "Markdown viewer and editor";
-  head.append(name, tagline);
+  head.append(brand, tagline);
   root.append(head);
 
   if (onOpen) {

@@ -561,17 +561,25 @@ p > img:only-child {
   line-height: 1.2;
 }
 
-/* A sheet with a turned-down corner in the colours of the demo picture. */
-.start__logo {
-  width: 3.4rem;
-  margin: 0 auto 1.1rem;
-  filter: drop-shadow(0 0.35rem 0.7rem rgba(0, 0, 0, 0.28));
+/* The icon beside the name. */
+.start__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
 }
 
-.start__logo svg {
+.start__icon {
+  flex: 0 0 auto;
+  width: 4rem;
+  height: 4rem;
+  filter: drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.3));
+}
+
+.start__icon svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }
 
 .start__tagline {
@@ -678,6 +686,65 @@ p > img:only-child {
 .start__keys kbd {
   font-size: 0.74rem;
   color: var(--fg);
+}
+
+/*
+ * The start screen is a sheet of paper in the colours of the demo picture: a blue-to-lilac
+ * gradient with the top right corner turned down. Its colours do not follow the theme, so the
+ * text on it is white and the keys are dark glass.
+ */
+.reader {
+  position: relative;
+  --fold: 4.5rem;
+}
+
+.reader:has(.start) {
+  background: linear-gradient(180deg, #3c6ea5 0%, #8287c1 50%, #c8a0dc 100%);
+  clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%);
+}
+
+.reader:has(.start)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--fold);
+  height: var(--fold);
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom left,
+    transparent 49.2%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(255, 255, 255, 0.42) 52%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+}
+
+.start {
+  --fg: #ffffff;
+  --fg-muted: rgba(255, 255, 255, 0.84);
+  --rule: rgba(255, 255, 255, 0.3);
+  --rule-strong: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(20, 30, 70, 0.35);
+}
+
+.start kbd {
+  background: rgba(15, 25, 60, 0.32);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  text-shadow: none;
+}
+
+.start .start__open {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+}
+
+.start .start__open:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: #ffffff;
 }
 
 /* The shortcuts window (F1): the start screen's command list in a box over the page. */

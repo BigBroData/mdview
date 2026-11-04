@@ -94,7 +94,7 @@ describe("start screen commands", () => {
 });
 
 describe("start screen mark", () => {
-  test("a sheet logo stands above the name", async () => {
+  test("the application icon stands beside the name", async () => {
     const { JSDOM } = await import("jsdom");
     const { createStartScreen } = await import("../src/client/start-screen.ts");
     const previous = globalThis.document;
@@ -109,10 +109,10 @@ describe("start screen mark", () => {
         saveAs: false,
         quit: false,
       });
-      const head = screen.querySelector(".start__head");
-      expect(head?.firstElementChild?.className).toBe("start__logo");
-      expect(head?.querySelector(".start__logo svg path")).not.toBeNull();
-      expect(head?.querySelector("h1")?.textContent).toBe("mdview");
+      const brand = screen.querySelector(".start__head .start__brand");
+      expect(brand?.children[0]?.className).toBe("start__icon");
+      expect(brand?.querySelector(".start__icon svg path")).not.toBeNull();
+      expect(brand?.children[1]?.textContent).toBe("mdview");
     } finally {
       globalThis.document = previous;
     }
