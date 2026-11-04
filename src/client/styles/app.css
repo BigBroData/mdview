@@ -150,6 +150,9 @@ body {
 /* The start screen lists commands in two columns, which need more room than a text column. */
 .document:has(> .start) {
   max-width: 58rem;
+  /* Little space above and below, so the whole list fits a window of the default height. */
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 @media (max-width: 600px) {
@@ -543,7 +546,8 @@ p > img:only-child {
 /* ---------- start screen (no document open) ---------- */
 
 .start {
-  min-height: calc(100vh - 9.5rem);
+  /* The window minus the page's own top and bottom space (.document:has(> .start) below). */
+  min-height: calc(100vh - 2.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -571,8 +575,8 @@ p > img:only-child {
 
 .start__icon {
   flex: 0 0 auto;
-  width: 4rem;
-  height: 4rem;
+  width: 3.6rem;
+  height: 3.6rem;
   filter: drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.3));
 }
 
@@ -590,7 +594,7 @@ p > img:only-child {
 }
 
 .start__head {
-  margin-bottom: 1.6rem;
+  margin-bottom: 1.1rem;
 }
 
 .start__open {
@@ -621,8 +625,8 @@ p > img:only-child {
 /* Two balanced columns of command groups; one column in a narrow window. */
 .start__groups {
   width: min(56rem, 100%);
-  margin-top: 2.6rem;
-  padding-top: 1.4rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--rule);
   display: grid;
   /* Two columns while both fit (the longest row is about 24rem), else one under the other. */
@@ -633,7 +637,7 @@ p > img:only-child {
 }
 
 .start__group {
-  margin-bottom: 1.4rem;
+  margin-bottom: 1rem;
 }
 
 .start__group .start__title {
@@ -656,7 +660,7 @@ p > img:only-child {
 .start__rows dt,
 .start__rows dd {
   margin: 0;
-  padding: 0.34rem 0;
+  padding: 0.24rem 0;
   border-bottom: 1px solid var(--rule);
   font-size: 0.88rem;
   white-space: nowrap;
