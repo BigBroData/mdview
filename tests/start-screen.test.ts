@@ -92,3 +92,29 @@ describe("start screen commands", () => {
     }
   });
 });
+
+describe("start screen mark", () => {
+  test("a sheet logo stands above the name", async () => {
+    const { JSDOM } = await import("jsdom");
+    const { createStartScreen } = await import("../src/client/start-screen.ts");
+    const previous = globalThis.document;
+    globalThis.document = new JSDOM("").window.document;
+    try {
+      const screen = createStartScreen({
+        open: false,
+        create: false,
+        drop: false,
+        tabs: false,
+        edit: false,
+        saveAs: false,
+        quit: false,
+      });
+      const head = screen.querySelector(".start__head");
+      expect(head?.firstElementChild?.className).toBe("start__logo");
+      expect(head?.querySelector(".start__logo svg path")).not.toBeNull();
+      expect(head?.querySelector("h1")?.textContent).toBe("mdview");
+    } finally {
+      globalThis.document = previous;
+    }
+  });
+});

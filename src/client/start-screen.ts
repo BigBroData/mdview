@@ -154,6 +154,23 @@ export function createCommandList(caps: Capabilities): HTMLElement {
   return list;
 }
 
+/**
+ * The mark above the name: a sheet with a turned-down corner, filled with the blue-to-lilac
+ * gradient of the demo picture (docs: demo A.md). Static markup, no document text goes in.
+ */
+const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 92" width="72" height="92" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="start-sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3c6ea5"/>
+      <stop offset="0.5" stop-color="#8287c1"/>
+      <stop offset="1" stop-color="#c8a0dc"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 0 H46 L72 26 V84 A8 8 0 0 1 64 92 H8 A8 8 0 0 1 0 84 V8 A8 8 0 0 1 8 0 Z" fill="url(#start-sheet)"/>
+  <path d="M46 0 V20 A6 6 0 0 0 52 26 H72 Z" fill="#ffffff" fill-opacity="0.42"/>
+  <path d="M46 0 V20 A6 6 0 0 0 52 26 H72" fill="none" stroke="#000000" stroke-opacity="0.12"/>
+</svg>`;
+
 /** Builds the start screen; `onOpen` is the action of the main button (absent: no button, the host cannot open files). */
 export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTMLElement {
   const root = document.createElement("section");
@@ -161,6 +178,10 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
 
   const head = document.createElement("header");
   head.className = "start__head";
+  const logo = document.createElement("div");
+  logo.className = "start__logo";
+  logo.innerHTML = LOGO;
+  head.append(logo);
   const name = document.createElement("h1");
   name.className = "start__name";
   name.textContent = "mdview";

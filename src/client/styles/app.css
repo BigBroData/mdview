@@ -561,6 +561,19 @@ p > img:only-child {
   line-height: 1.2;
 }
 
+/* A sheet with a turned-down corner in the colours of the demo picture. */
+.start__logo {
+  width: 3.4rem;
+  margin: 0 auto 1.1rem;
+  filter: drop-shadow(0 0.35rem 0.7rem rgba(0, 0, 0, 0.28));
+}
+
+.start__logo svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .start__tagline {
   margin: 0.4rem 0 0;
   color: var(--fg-muted);
@@ -569,7 +582,7 @@ p > img:only-child {
 }
 
 .start__head {
-  margin-bottom: 1.9rem;
+  margin-bottom: 1.6rem;
 }
 
 .start__open {
