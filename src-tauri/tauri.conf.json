@@ -60,7 +60,8 @@
       "deb": {
         "desktopTemplate": "./mdview.desktop",
         "files": {
-          "/usr/share/mime/packages/mdview.xml": "./mime/mdview.xml"
+          "/usr/share/mime/packages/mdview.xml": "./mime/mdview.xml",
+          "/usr/share/doc/mdview/copyright": "../LICENSE"
         }
       }
     }
