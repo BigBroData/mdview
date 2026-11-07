@@ -1,225 +1,286 @@
 # mdview
 
-Лёгкий и аккуратный просмотрщик Markdown, а с версии 2 ещё и редактор; сейчас версия 3 (0.3.0). Работает как настольное приложение
-Tauri 2 для Linux (пакет `.deb`, двойной клик по `.md`/`.mdx` в GNOME) и как локальный сервер Bun для браузера
-(только просмотр: редактирование доступно в настольном окне).
+A small, fast **Markdown viewer and editor** for Linux. Double-click a `.md` file and read it; press `Ctrl+E` and edit it
+with a live preview beside the text. It is a desktop app (Tauri 2, a `.deb` package for Debian and Ubuntu) and also a
+local Bun server that shows a file in your browser. Current version: **0.3.0**.
 
-## Что умеет
+![The editor with a live preview: Markdown source on the left, coloured code in both panes](docs/images/edit.png)
 
-- **Редактор (версия 2).** Ctrl+E превращает открытый документ в редактор CodeMirror 6: слева текст с подсветкой Markdown,
-  справа живой предпросмотр, который прокручивается за курсором. Ctrl+S сохраняет, Ctrl+E (или «Done») возвращает к чтению.
-  У каждой вкладки свой текст, курсор и история отмены. Правки не теряются молча: закрытие вкладки или окна и выход
-  из редактора спрашивают «Save / Discard / Cancel»; если файл изменили снаружи, пока в редакторе есть несохранённое,
-  первый Ctrl+S только предупреждает, второй перезаписывает. Окончания строк (CRLF) и BOM сохраняются. Файл только для
-  чтения, не UTF-8 и не Markdown/текст не редактируются. Поиск в редакторе — Ctrl+F (панель CodeMirror), сочетания
-  работают и на русской раскладке.
-- **Новый файл и «Сохранить как».** Ctrl+N спрашивает, где создать файл (без расширения добавляется `.md`), создаёт пустой
-  и сразу открывает его в редакторе; существующий файл не затирается. Ctrl+Shift+S в редакторе сохраняет текст под другим
-  именем: вкладка переходит на новый файл, старый остаётся как был (Alt+← в этой вкладке возвращает к нему). При чтении
-  (вне редактора) тот же Ctrl+Shift+S сохраняет копию открытого файла байт в байт и открывает её вкладкой: так можно
-  скопировать и файл только для чтения.
-- **Граница между редактором и предпросмотром** перетаскивается мышью (двойной щелчок возвращает пополам, стрелки ← → на
-  ней двигают на 2 %, доля запоминается). Ctrl+Shift+E (или кнопка «Preview») прячет предпросмотр: остаётся один редактор.
-- **Справка по клавишам.** F1 (или `?` вне поля ввода) открывает окно «Keyboard shortcuts» со всеми командами и клавишами
-  поверх открытого документа; Esc или F1 закрывает. Тот же список на стартовом экране; перечень зависит от того, что умеет окно.
-- **Прокрутка в обе стороны.** В режиме редактора предпросмотр идёт за редактором, а если прокрутить предпросмотр рукой,
-  редактор переходит к тому же месту. Код внутри ограждений ` ``` ` в редакторе подсвечивается по языку (17 языков:
-  JS/TS, Python, JSON, CSS, HTML, Rust, Shell, YAML, TOML, Go, C, C++, Java, C#, SQL, Diff; каждый грузится только когда
-  встретился). Окно запоминает размер и «развёрнуто» между запусками.
-- **Диаграммы Mermaid.** Блок ` ```mermaid ` рисуется картинкой в цветах выбранной темы; библиотека подгружается только
-  в документе, где такой блок есть. Ошибка в схеме не ломает страницу: остаётся код и строка с причиной.
-- **Сырой HTML** (`<img align=… width=…>`, `<details>`, `<kbd>`, `<br>`, таблицы) показывается через DOMPurify с
-  дополнительными запретами: нет `<style>`, `<link>`, форм, рамок и медиа, из `style` убраны `position`, `z-index` и адреса.
-  Скрипты и обработчики событий не работают в любом случае (политика безопасности окна). В файлах `.mdx` HTML не включается.
-- Заголовки, списки, цитаты, таблицы GitHub, чекбоксы `- [x]`, зачёркивание, автоссылки.
-- Формулы KaTeX: `$inline$`, `$$ display $$`, блоки ` ```math `.
-- Подсветка кода (highlight.js, набор распространённых языков).
-- Картинки: лежащие рядом с файлом (относительные пути, только из папки документа) и по ссылкам `https://`
-  (бейджи и т. п.; в настольном окне они загружаются из сети).
-- Файлы `.mdx`: Markdown показывается как обычно, строки `import`/`export` — приглушённым блоком кода,
-  JSX-теги — тихими «плашками» на своих местах (компоненты не исполняются; текст между тегами рендерится).
-  YAML-шапка (`---` в начале файла) показывается приглушённым блоком, а не линией и заголовком.
-- Ссылки: `#якорь` прокручивает к заголовку (идентификаторы как на GitHub, в том числе кириллица),
-  ссылка на соседний `.md`/`.mdx` (в том числе `../другая/папка/файл.md#раздел`) открывается в этом же окне,
-  `https://` и `mailto:` уходят в браузер по умолчанию. Alt+← / Alt+→ (или боковые кнопки мыши) — назад и вперёд
-  с возвратом на то же место.
-- Вкладки (настольное окно): `mdview файл.md` при уже открытом окне не создаёт второе, а добавляет файл вкладкой
-  в то же окно и выводит его вперёд; то же делают Ctrl+O, перетаскивание (можно несколько файлов) и выделение
-  нескольких файлов в файловом менеджере. Ссылка на документ с Ctrl+клик (или средней кнопкой) открывается новой
-  вкладкой, обычный щелчок — в этой же. Файл, уже открытый вкладкой, не дублируется, вкладка просто выходит вперёд.
-  У каждой вкладки своя история Alt+←/→. Пока открыт один документ, полосы вкладок нет.
-- Окно шире 1000 px увеличивает текст (до +8 px), колонка растёт вместе с ним, как «по ширине» в
-  просмотрщике PDF; всё остальное измеряется в `rem` и следует за размером.
-- Живая перезагрузка: сохранили файл в любом редакторе, страница обновилась, позиция прокрутки сохранена.
-- Таблицы: узкие колонки (годы, идентификаторы) не переносятся, колонки с прозой получают минимальную ширину; слишком широкая таблица прокручивается внутри своего блока, страница не расползается.
-- Светлая и тёмная тема по системной настройке. Вся палитра — переменные в начале
-  `src/client/styles/app.css`; тема = переопределение этих переменных.
-- Стартовый экран (когда файл не открыт): название, кнопка «Open a file» (Ctrl+O) и все команды с клавишами в две колонки;
-  список зависит от возможностей окна (в браузерной стадии нет открытия и редактирования).
-- Темы файлами: `~/.config/mdview/themes/<имя>.css` плюс встроенные `sepia`, `dusk`, `contrast`. Ctrl+Shift+T открывает
-  список, стрелки показывают тему сразу, Enter оставляет, Esc отменяет; выбор запоминается. Формат и список переменных — `docs/themes.md`.
-- Сырой HTML в документе показывается как текст, не исполняется.
-- Ширина колонки: Ctrl+Shift+W переключает «колонка → широко → на весь экран»; размер
-  текста: Ctrl+плюс, Ctrl+минус, Ctrl+0. Выбор запоминается между запусками.
-- Поиск по документу: Ctrl+F открывает панель, совпадения подсвечиваются по мере набора,
-  Enter и Shift+Enter (или F3) ходят по ним, Esc закрывает; совпадения отмечены точками на
-  ленте заголовков. Формулы не ищутся. Больше 1000 совпадений не подсвечивается.
-- Панель оглавления (необязательно): Ctrl+Shift+O показывает слева список заголовков, текущий раздел отмечен, щелчок
-  переходит к разделу (и Alt+← возвращает). Включённость запоминается; в окне уже 640 px панель скрыта.
-- Лента заголовков у правого края: штрих на каждый заголовок (чем выше уровень, тем длиннее),
-  полоса показывает видимую часть документа, наведение показывает название, щелчок переходит
-  к разделу. Появляется, когда в документе от трёх заголовков и он длиннее полутора экранов.
+## Screenshots
 
-## Установка
+| Start screen | A Mermaid diagram in the colours of the theme |
+| --- | --- |
+| ![Start screen with all commands and their keys](docs/images/start.png) | ![A flowchart drawn by Mermaid](docs/images/diagram.png) |
 
-Нужен [Bun](https://bun.sh) 1.3 или новее.
+The screenshots show the demo document, [docs/demo.md](docs/demo.md): open it with `mdview docs/demo.md` to see the same page.
+
+## Features
+
+**Reading**
+
+- GitHub-flavoured Markdown: tables, task lists, strikethrough, autolinks.
+- Math with KaTeX: `$inline$`, `$$display$$` and ` ```math ` blocks.
+- Code highlighting (highlight.js, the common languages).
+- **Mermaid diagrams** (` ```mermaid `), drawn in the colours of the current theme. The library loads only in a document
+  that has a diagram; a mistake in a diagram leaves the code and the reason instead of breaking the page.
+- **Raw HTML** (`<kbd>`, `<details>`, `<img width=…>`, tables) is cleaned by DOMPurify with extra restrictions: no `<style>`,
+  `<link>`, forms, frames or media, and `position`, `z-index` and URLs are removed from `style`. Scripts never run.
+- Images next to the document (relative paths, only from the document's folder) and `https://` images.
+- `.mdx` files: Markdown as usual, `import`/`export` lines as a muted code block, JSX tags as quiet chips (components are
+  not executed). A YAML front matter block is shown as a muted block.
+- Links: `#anchor` scrolls to a heading (GitHub-style ids, Cyrillic included), a link to a neighbouring `.md` opens in the same
+  window, `https://` and `mailto:` go to your default browser. `Alt+←` / `Alt+→` (or the mouse side buttons) go back and
+  forward and return to the same place.
+- Live reload: save the file in any editor and the page updates in place, keeping the scroll position.
+- Search (`Ctrl+F`), a contents panel (`Ctrl+Shift+O`) and a heading ribbon at the right edge for long documents.
+- Light and dark themes follow the system. Extra themes are plain CSS files (see [Themes](#themes)).
+- Column width (`Ctrl+Shift+W`) and text size (`Ctrl`+`+` / `-` / `0`), remembered between runs. The window remembers its size too.
+
+**Editing**
+
+- `Ctrl+E` turns the open document into a CodeMirror 6 editor with a live preview. The two panes scroll together in both
+  directions. `Ctrl+S` saves; `Ctrl+E` (or **Done**) returns to reading.
+- Code inside ` ``` ` fences is highlighted by language in the editor too (17 languages, each loaded only when met).
+- Every tab has its own text, cursor and undo history. Changes are never lost silently: closing a tab or the window asks
+  **Save / Discard / Cancel**. If the file changed on disk while you have unsaved edits, the first `Ctrl+S` only warns you
+  and the second overwrites. Line endings (CRLF) and a BOM are kept.
+- New file (`Ctrl+N`) and **Save as** (`Ctrl+Shift+S`). While reading, `Ctrl+Shift+S` saves a byte-for-byte copy of the file,
+  which is also a way to copy a read-only file.
+- The divider between the editor and the preview can be dragged (double click resets it, `←` `→` on it move it by 2 %).
+  `Ctrl+Shift+E` hides the preview and leaves the editor alone.
+- Shortcuts work on non-Latin keyboard layouts (they follow the physical key).
+
+**Tabs and files**
+
+- One window per user: `mdview other.md` while a window is open adds a tab to it. Drag and drop, `Ctrl+O` and selecting several files
+  in the file manager do the same. `Ctrl+click` (or middle click) on a link opens it in a new tab.
+- `Ctrl+W` closes a tab (closing the last one leaves the start screen); `Ctrl+Q` quits and asks about unsaved changes.
+- `F1` (or `?`) shows every command with its keys over the document. The start screen shows the same list.
+
+## Install
+
+### Debian, Ubuntu and derivatives: the `.deb` package
+
+This covers Debian, Ubuntu, Linux Mint, Pop!_OS, elementary OS and the other distributions that use `apt`. You need
+`libwebkit2gtk-4.1-0` and `libgtk-3-0`, which come with Ubuntu 22.04 or newer and Debian 12 or newer and are installed
+automatically.
+
+Download `mdview_0.3.0_amd64.deb` from the Releases page, then:
 
 ```bash
-cd ~/mdview
-bun install
+sudo apt install ./mdview_0.3.0_amd64.deb
 ```
 
-## Запуск
-
 ```bash
-bun run start -- путь/к/файлу.md
+mdview docs/demo.md
 ```
 
-В терминале появится адрес вида `http://127.0.0.1:3737/`. Откройте его в браузере,
-или добавьте `--open`, чтобы браузер открылся сам. Остановить: `Ctrl+C`.
+After installing, `.md` and `.mdx` files open with a double click (mdview registers `text/markdown` and `text/mdx`). If your file
+manager offers another program, pick mdview once under **Open with**. To remove it: `sudo apt remove mdview`.
 
-Опции:
+### Any Linux: build from source
 
-| Опция        | Смысл                                                   |
-| ------------ | ------------------------------------------------------- |
-| `--port N`   | порт (по умолчанию 3737; `0` — любой свободный)          |
-| `--open`     | открыть страницу в браузере по умолчанию (`xdg-open`)    |
-| `--dev`      | пересобирать код страницы при каждом запросе (для работы над самим mdview: правки стилей видны после обновления страницы) |
+You do not need a package to use mdview: build it yourself and run the binary. Three things are needed.
 
-Сервер слушает только `127.0.0.1`, снаружи машины недоступен.
-
-## Проверка и сборка
+**1. Bun 1.3 or newer** ([bun.sh](https://bun.sh)) and **Rust** (stable, via [rustup](https://rustup.rs)):
 
 ```bash
-bun run check      # типы + линтер + тесты
-bun test           # только тесты
-bun run build      # статический клиент в dist/ (вход для этапа Tauri)
-```
-
-## Настольное приложение (этап 2, Tauri 2) — сборка на Linux
-
-Проверено 25.10.2026 на Pop!_OS 22.04 (GNOME, X11): `cargo test` 3/3, `bun test` 45/45,
-`.deb` 2,6 МБ, бинарник 4,6 МБ; окно открывает файл из аргумента, следует тёмной теме
-системы, показывает картинки рядом с файлом, перерисовывается после атомарного
-сохранения, Ctrl+O открывает родной диалог GNOME. Ещё не проверено вживую: установка
-пакета (нужен sudo), двойной клик и перетаскивание на настоящем рабочем столе.
-
-Папка `src-tauri/` — оболочка на Rust: читает файл по пути, следит за ним,
-отдаёт картинки рядом с ним, открывает родной диалог GNOME по Ctrl+O, принимает
-файл из командной строки и из файлового менеджера. Страница внутри окна — тот
-же клиент из `dist/`.
-
-Один раз на машине с Pop!_OS / Ubuntu:
-
-```bash
-sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+curl -fsSL https://bun.sh/install | bash
 ```
 
 ```bash
 curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 ```
 
-(после rustup откройте новый терминал или выполните `source ~/.cargo/env`).
+Open a new terminal afterwards (or run `source ~/.cargo/env`).
 
-Сборка пакета:
-
-```bash
-cd ~/mdview && bun install && bun run desktop:build
-```
-
-Пакет появится в `src-tauri/target/release/bundle/deb/mdview_0.2.0_amd64.deb`.
-Установка и проверка:
+**2. The system libraries of Tauri 2** (WebKitGTK 4.1 and a C toolchain):
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/mdview_0.2.0_amd64.deb
+# Debian, Ubuntu and derivatives
+sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
 ```bash
-mdview README.md
+# Fedora
+sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel && sudo dnf group install "c-development"
 ```
-
-После установки `.md` и `.mdx` открываются двойным кликом (ассоциации `text/markdown` и `text/mdx`; тип
-`.mdx` пакет регистрирует сам, в `/usr/share/mime/packages/mdview.xml`);
-если файловый менеджер предлагает другую программу, выберите mdview через
-«Открыть с помощью» один раз.
-
-Проверка Rust-части без сборки пакета: `cd src-tauri && cargo test`.
-Окно разработки с живой пересборкой клиента: `bun run desktop:dev`.
-
-Клавиши в окне: F1 или ? справка по клавишам · Ctrl+N новый файл · Ctrl+E редактор · Ctrl+S сохранить (в редакторе) · Ctrl+Shift+S сохранить как (при чтении — копию) · Ctrl+Shift+E спрятать или показать предпросмотр · Alt+← / Alt+→ назад и вперёд · Ctrl+O открыть файл (во вкладке) · Ctrl+W закрыть вкладку (закрыв последнюю, остаётесь на стартовом экране) · Ctrl+Q выйти · Ctrl+Tab / Ctrl+Shift+Tab (или Ctrl+PgDn / Ctrl+PgUp) следующая и предыдущая вкладка · Ctrl+1…8 вкладка по номеру, Ctrl+9 последняя · Ctrl+F поиск · Ctrl+Shift+W ширина колонки · Ctrl+Shift+O оглавление · Ctrl+Shift+T тема · Ctrl+плюс / Ctrl+минус / Ctrl+0 размер текста.
-
-## Где что лежит
-
-```
-src/render/   рендер Markdown в HTML: чистая функция, общая для браузера и тестов
-src/server/   CLI, HTTP-сервер, слежение за файлом, сборка клиента
-src/client/   страница, стили, код в браузере; platform/ — слой «браузер или Tauri»
-src-tauri/    оболочка Tauri 2 (Rust), конфиг пакета, шаблон .desktop
-tests/        bun test; tests/fixtures — образцы документов
-docs/         decisions.md (почему так), backlog.md (что отложено)
-```
-
-## Типичные ошибки
-
-- `mdview: file not found` — путь к файлу неверный; путь считается от текущей папки.
-- `mdview: port 3737 is busy` — уже запущен другой экземпляр; укажите `--port 0`.
-- Страница показывает «Connection to viewer lost» — сервер остановлен; запустите снова
-  и обновите страницу.
-- Картинка не показывается — она лежит вне папки документа (например, `../img.png`);
-  сервер такие пути не отдаёт намеренно.
-
-## Сетевые обращения
-
-Только картинки с адресами `https://` в самом документе (настольное окно загружает их так же, как GitHub).
-Шрифты KaTeX и все скрипты лежат локально; `http://`-картинки не загружаются.
-
-## Лицензия
-
-MIT, © 2026 BigBroData (sheyhali34@gmail.com). Полный текст лежит в файле [LICENSE](LICENSE): программу можно свободно использовать, менять,
-распространять и включать в свои проекты, сохранив уведомление об авторстве и текст лицензии. Гарантий нет («как есть»).
-Сторонние библиотеки (CodeMirror, markdown-it, KaTeX, highlight.js, DOMPurify, Mermaid, Tauri и другие) идут под своими
-лицензиями, они совместимы с MIT и перечислены в `package.json` и `src-tauri/Cargo.toml`.
-
-## Участие в разработке
-
-Помощь приветствуется: сообщения об ошибках, идеи, исправления и новые возможности. Что уже запланировано и что осознанно
-отложено, описано в `docs/backlog.md`, а почему всё устроено именно так, в `docs/decisions.md`; прочитайте их перед
-крупной правкой.
-
-**Как начать**
 
 ```bash
-bun install        # зависимости
-bun run start -- README.md --dev   # живой просмотр в браузере, клиент пересобирается при каждом обращении
-bun run check      # типы + линтер + тесты: должно быть чисто перед отправкой правки
+# Arch and derivatives
+sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
 ```
 
-Для настольного окна нужны Rust и системные библиотеки Tauri (см. раздел выше); `cargo test` в `src-tauri/` запускает тесты оболочки.
+```bash
+# openSUSE
+sudo zypper in webkit2gtk3-devel libopenssl-devel curl wget file libappindicator3-1 librsvg-devel && sudo zypper in -t pattern devel_basis
+```
 
-**Правила, которые держат проект в порядке**
+These lists come from the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux). The author builds and tests on
+Pop!_OS 22.04 (X11); the other lists were not tried here. If a package name has changed in your release, the Tauri page is
+the place to look.
 
-1. **Маленькие коммиты с сообщениями на английском.** Один коммит, одна мысль; «что и зачем» в первой строке.
-2. **Тесты к новой логике.** Чистые функции проверяются в `tests/` (`bun test`), поведение окна желательно пройти руками
-   или во вложенном X-сервере и написать в `docs/decisions.md`, что именно проверено.
-3. **Новая клавиша описывается в списке.** Команду нужно добавить в `commandGroups` (`src/client/start-screen.ts`)
-   в том же коммите, где добавлен обработчик: список клавиш показывается на стартовом экране и по F1, тест следит за этим.
-4. **Лёгкость — требование продукта.** Не добавляйте зависимость ради мелочи; тяжёлое должно грузиться лениво (как диаграммы
-   и языки подсветки). Размер пакета и скорость первого показа важнее новых возможностей «на всякий случай».
-5. **Безопасность не ослабляется.** Сырой HTML проходит через `src/render/sanitize.ts`, политика безопасности окна
-   (`src-tauri/tauri.conf.json`) не расширяется без веской причины, запись на диск идёт только через проверки в `save.rs`.
-6. **Стиль задаёт Biome** (`bun x biome check --write src tests`); не спорьте с форматированием.
+**3. Build and install for your user** (no `sudo`, no package):
 
-**Как предложить правку.** Напишите автору, BigBroData: **sheyhali34@gmail.com**. Опишите задачу или ошибку, по возможности приложите
-вывод `bun run check` и, если правка готова, сам патч (`git format-patch`) или ссылку на ветку. Когда проект появится в публичном
-репозитории, предложения можно будет оформлять обсуждениями и запросами на слияние. Отправляя правку, вы соглашаетесь, что она
-распространяется на условиях той же лицензии MIT.
+```bash
+git clone <repository-url> mdview && cd mdview
+bun install
+bun run desktop:build -- --no-bundle
+```
+
+The binary is `src-tauri/target/release/mdview`; the page is built into it, so it runs on its own. Put it where your
+launcher can find it:
+
+```bash
+install -Dm755 src-tauri/target/release/mdview ~/.local/bin/mdview
+install -Dm644 src-tauri/icons/128x128.png ~/.local/share/icons/hicolor/128x128/apps/mdview.png
+install -Dm644 src-tauri/mime/mdview.xml ~/.local/share/mime/packages/mdview.xml
+```
+
+```bash
+cat > ~/.local/share/applications/mdview.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=mdview
+Comment=Lightweight Markdown viewer
+Exec=$HOME/.local/bin/mdview %F
+Icon=mdview
+Terminal=false
+Categories=Utility;
+StartupWMClass=mdview
+MimeType=text/markdown;text/mdx;
+EOF
+update-mime-database ~/.local/share/mime
+update-desktop-database ~/.local/share/applications
+```
+
+mdview now appears in the application menu and in **Open with** for Markdown files. (`~/.local/bin` must be on your `PATH` to
+type `mdview` in a terminal.) To build your own `.deb` instead, run `bun run desktop:build`; it appears in
+`src-tauri/target/release/bundle/deb/`.
+
+### In a browser, without Rust
+
+The Bun server shows a file in your browser (reading only: editing needs the desktop window). It needs only Bun:
+
+```bash
+bun install
+bun run start -- path/to/file.md --open
+```
+
+The terminal prints an address such as `http://127.0.0.1:3737/`; `--open` opens it for you. Stop with `Ctrl+C`.
+
+| Option     | Meaning                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| `--port N` | port (default 3737; `0` picks any free one)                                                   |
+| `--open`   | open the page in the default browser (`xdg-open`)                                             |
+| `--dev`    | rebuild the page code on every request (for working on mdview itself; styles refresh on reload) |
+
+The server listens on `127.0.0.1` only, so it cannot be reached from outside the machine.
+
+## Keyboard shortcuts
+
+Press `F1` in the app to see them any time.
+
+| Keys | Action |
+| --- | --- |
+| `F1` or `?` | all shortcuts |
+| `Ctrl+O` | open a file (in a new tab) |
+| `Ctrl+N` | new file |
+| `Ctrl+E` | edit / read |
+| `Ctrl+S` | save (in the editor) |
+| `Ctrl+Shift+S` | save as (while reading: save a copy) |
+| `Ctrl+Shift+E` | hide or show the preview |
+| `Ctrl+W` / `Ctrl+Q` | close the tab / quit |
+| `Ctrl+Tab`, `Ctrl+Shift+Tab` | next and previous tab (also `Ctrl+PgDn` / `Ctrl+PgUp`) |
+| `Ctrl+1`…`8`, `Ctrl+9` | tab by number, last tab |
+| `Alt+←` / `Alt+→` | back and forward |
+| `Ctrl+F`, `F3` / `Shift+F3` | find, next and previous match |
+| `Ctrl+Shift+O` | contents panel |
+| `Ctrl+Shift+T` | switch theme |
+| `Ctrl+Shift+W` | column width |
+| `Ctrl`+`+`, `Ctrl`+`-`, `Ctrl+0` | text size |
+
+## Themes
+
+Besides the built-in light and dark looks there are `sepia`, `dusk` and `contrast`. `Ctrl+Shift+T` opens the list: the arrow
+keys preview a theme at once, `Enter` keeps it and `Esc` cancels. A theme is a CSS file that overrides a few variables, so you
+can add your own as `~/.config/mdview/themes/<name>.css`. The format and the full list of variables are in
+[docs/themes.md](docs/themes.md).
+
+## Network access
+
+Only `https://` images that the document itself refers to (the desktop window loads them the way GitHub does). KaTeX fonts and
+all scripts are bundled; `http://` images are not loaded.
+
+## Troubleshooting
+
+- `mdview: file not found`: the path is wrong; it is taken from the current folder.
+- `mdview: port 3737 is busy` (browser mode): another instance runs; use `--port 0`.
+- The page says "Connection to viewer lost" (browser mode): the server stopped; start it again and reload the page.
+- An image is missing: it lies outside the document's folder (for example `../img.png`); mdview refuses such paths on purpose.
+- The build stops with `cargo metadata … No such file or directory`: Rust is not on your `PATH`; open a new terminal or run `source ~/.cargo/env`.
+- The build cannot find `webkit2gtk-4.1`: install the system libraries from step 2 above. The older 4.0 series is not enough.
+
+## For developers
+
+```
+src/render/   Markdown to HTML: a pure function shared by the browser and the tests
+src/server/   command line, HTTP server, file watching, client build
+src/client/   the page: styles and browser code; platform/ is the "browser or Tauri" layer
+src-tauri/    the Tauri 2 shell (Rust), package config, .desktop template
+tests/        bun test; tests/fixtures holds sample documents
+docs/         decisions.md (why it is like this), backlog.md (what is postponed),
+              changelog.md, themes.md, demo.md, images/
+```
+
+```bash
+bun run check      # types + linter + tests (all must pass)
+bun test           # tests only
+bun run build      # the static client into dist/
+bun run desktop:dev   # a development window with a live-rebuilt client
+cd src-tauri && cargo test   # tests of the Rust shell
+```
+
+## License
+
+MIT, © 2026 BigBroData. The full text is in [LICENSE](LICENSE): you may use, change, distribute and include the program in your own
+projects as long as you keep the copyright notice and the licence text. There is no warranty ("as is"). The libraries mdview
+uses (CodeMirror, markdown-it, KaTeX, highlight.js, DOMPurify, Mermaid, Tauri and others) have their own licences, compatible
+with MIT, listed in `package.json` and `src-tauri/Cargo.toml`.
+
+## Contributing
+
+Help is welcome: bug reports, ideas, fixes and new features. What is planned and what was left out on purpose is in
+[docs/backlog.md](docs/backlog.md); why things are built the way they are is in [docs/decisions.md](docs/decisions.md). Please
+read both before a large change.
+
+**Getting started**
+
+```bash
+bun install
+bun run start -- README.md --dev   # live view in the browser, the client rebuilds on every request
+bun run check                      # types + linter + tests: must be clean before you send a change
+```
+
+The desktop window needs Rust and the Tauri system libraries (see [Install](#install)); `cargo test` in `src-tauri/` runs the
+shell's tests.
+
+**The rules that keep the project tidy**
+
+1. **Small commits with English messages.** One commit, one idea; "what and why" in the first line.
+2. **Tests for new logic.** Pure functions are tested in `tests/` (`bun test`). Window behaviour is best tried by hand (or in a
+   nested X server), and what was checked is noted in `docs/decisions.md`.
+3. **A new key goes in the list.** Add the command to `commandGroups` (`src/client/start-screen.ts`) in the same commit as its
+   handler: the list is shown on the start screen and by `F1`, and a test watches it.
+4. **Lightness is a product requirement.** Do not add a dependency for a small thing; heavy parts load lazily (like diagrams and
+   highlighting languages). Package size and first paint matter more than "just in case" features.
+5. **Safety is not loosened.** Raw HTML goes through `src/render/sanitize.ts`, the window's content security policy
+   (`src-tauri/tauri.conf.json`) is not widened without a strong reason, and writing to disk goes only through the checks in
+   `save.rs`.
+6. **Biome sets the style** (`bun x biome check --write src tests`); do not argue with the formatting.
+7. **Documentation is in English** (README, `docs/`, code comments and commit messages).
+
+**How to propose a change.** Open an issue or a pull request in the project's repository, or write to the author, BigBroData:
+**sheyhali34@gmail.com**. Describe the problem or the idea, attach the output of `bun run check` if you can, and, if the change is
+ready, the patch itself (`git format-patch`) or a link to a branch. By sending a change you agree that it is distributed under the
+same MIT licence.
