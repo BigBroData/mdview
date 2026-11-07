@@ -123,7 +123,7 @@ the place to look.
 **3. Build and install for your user** (no `sudo`, no package):
 
 ```bash
-git clone <repository-url> mdview && cd mdview
+git clone https://github.com/BigBroData/mdview.git mdview && cd mdview
 bun install
 bun run desktop:build -- --no-bundle
 ```
