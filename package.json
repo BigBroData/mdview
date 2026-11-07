@@ -4,6 +4,8 @@
   "description": "Lightweight, elegant Markdown viewer. Version 3: viewer and editor.",
   "type": "module",
   "private": true,
+  "license": "MIT",
+  "author": "BigBroData",
   "scripts": {
     "start": "bun run src/server/main.ts",
     "build": "bun run src/server/build.ts",
