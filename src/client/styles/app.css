@@ -593,6 +593,13 @@ p > img:only-child {
   letter-spacing: 0.03em;
 }
 
+.start__author {
+  margin: 0.25rem 0 0;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
 .start__head {
   margin-bottom: 1.1rem;
 }

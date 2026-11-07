@@ -113,6 +113,9 @@ describe("start screen mark", () => {
       expect(brand?.children[0]?.className).toBe("start__icon");
       expect(brand?.querySelector(".start__icon svg path")).not.toBeNull();
       expect(brand?.children[1]?.textContent).toBe("mdview");
+      const head = screen.querySelector(".start__head");
+      expect(head?.children[1]?.textContent).toBe("Markdown viewer and editor");
+      expect(head?.children[2]?.textContent).toBe("by BigBroData (MIT)");
     } finally {
       globalThis.document = previous;
     }

@@ -215,7 +215,10 @@ export function createStartScreen(caps: Capabilities, onOpen?: () => void): HTML
   const tagline = document.createElement("p");
   tagline.className = "start__tagline";
   tagline.textContent = "Markdown viewer and editor";
-  head.append(brand, tagline);
+  const author = document.createElement("p");
+  author.className = "start__author";
+  author.textContent = "by BigBroData (MIT)";
+  head.append(brand, tagline, author);
   root.append(head);
 
   if (onOpen) {
