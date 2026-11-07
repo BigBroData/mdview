@@ -1,22 +1,22 @@
 # Backlog
 
-Срезано из первой версии осознанно. Порядок примерный.
+Deliberately cut from the first version. The order is approximate.
 
-## Этап 2 — настольное приложение (собрано и проверено на Pop!_OS 22.04)
-- Проверено заказчиком вручную: установка пакета, двойной клик, перетаскивание, Wayland.
-- Вкладки сделаны (2026-11-02). Не сделано: перетаскивание вкладок, порядок «рядом с активной», вкладки в браузерной стадии при нескольких окнах, отдельное окно по желанию (Ctrl+N).
+## Stage 2 — desktop app (built and verified on Pop!_OS 22.04)
+- Checked manually by the owner: package installation, double click, drag and drop, Wayland.
+- Tabs are done (2026-11-02). Not done: dragging tabs, "next to the active one" ordering, tabs in the browser stage with several windows, a separate window on demand (Ctrl+N).
 
-## Рендер
-- MDX: показывать значения `export const meta` и простые `{выражения}`.
-- Сноски (`[^1]`), подсветка `==текст==`, emoji-шорткоды — по запросу.
-- Набор языков подсветки: сейчас `lib/common` (~37 языков, ~ половина бандла); при необходимости — явный список.
+## Rendering
+- MDX: show the values of `export const meta` and simple `{expressions}`.
+- Footnotes (`[^1]`), `==text==` highlighting, emoji shortcodes — on request.
+- Set of highlighting languages: currently `lib/common` (~37 languages, ~ half of the bundle); if needed, an explicit list.
 
-## Качество
-- Инкрементальная перерисовка (только изменившиеся блоки) — если на больших файлах будет заметно мигание.
-- Локализация интерфейса (сейчас три служебных сообщения на английском).
-- Печать/экспорт в PDF через диалог печати.
+## Quality
+- Incremental redraw (only changed blocks) — if flicker becomes noticeable on large files.
+- Interface localization (currently three service messages in English).
+- Printing/export to PDF via the print dialog.
 
-## Редактор (версии 2 и 3 сделаны; дальше)
-- Проверка орфографии по желанию.
-- Ещё языки в подсветке редактора (сейчас 17) и общий набор подсветки в предпросмотре — по запросу.
-- Редактирование в браузерной стадии (сервер Bun) — по необходимости.
+## Editor (versions 2 and 3 are done; next)
+- Spell checking on demand.
+- More languages in editor highlighting (currently 17) and a shared highlighting set in the preview — on request.
+- Editing in the browser stage (Bun server) — if needed.

@@ -1,31 +1,33 @@
-# Журнал версий
+# Changelog
 
-## 0.3.0 — версия 3 (2026-11-03): доводка редактора, HTML и диаграммы
-- Новый файл (Ctrl+N), «Сохранить как» (Ctrl+Shift+S), копия файла при чтении, перетаскиваемая граница между редактором и
-  предпросмотром, режим «только редактор» (Ctrl+Shift+E), подсветка строки с курсором, аккуратная панель поиска.
-- Прокрутка в обе стороны между редактором и предпросмотром.
-- Подсветка кода по языкам внутри ограждений в редакторе (17 языков, грузятся по мере надобности).
-- Сырой HTML в документах через DOMPurify и строгие запреты; диаграммы Mermaid (` ```mermaid `) в цветах темы.
-- Окно помнит размер и «развёрнуто».
-- Лицензия MIT (© BigBroData): файл `LICENSE`, строка «by BigBroData (MIT)» на стартовом экране, текст лицензии в пакете (`/usr/share/doc/mdview/copyright`), разделы «Лицензия» и «Участие в разработке» в README.
-- Стартовый экран стал «листом» с градиентом демо-картинки (синий → сиреневый) и загнутым правым верхним уголком; значок приложения стоит слева от названия.
-- Ctrl+W на последней вкладке больше не закрывает приложение (остаётся стартовый экран); выход — Ctrl+Q (с вопросом о несохранённом).
-- F1 (или `?`) показывает окно со всеми горячими клавишами поверх документа.
-- Сборка клиента делится на части: тяжёлое (диаграммы, языки) грузится только при необходимости.
-- Установщик: `mdview_0.3.0_amd64.deb`.
+## 0.3.0 — version 3 (2026-11-03): editor polish, HTML and diagrams
+- Added: new file (Ctrl+N), "Save as" (Ctrl+Shift+S), saving a copy of a file while reading, a draggable divider between the editor and
+  the preview, an editor-only mode (Ctrl+Shift+E), highlighting of the line with the cursor, a tidier search bar.
+- Added: two-way scrolling sync between the editor and the preview.
+- Added: per-language code highlighting inside fences in the editor (17 languages, loaded on demand).
+- Added: raw HTML in documents via DOMPurify with strict restrictions; Mermaid diagrams (` ```mermaid `) in theme colors.
+- Added: the window remembers its size and whether it is maximized.
+- Added: MIT license (© BigBroData): a `LICENSE` file, a "by BigBroData (MIT)" line on the start screen, the license text in the package (`/usr/share/doc/mdview/copyright`), "License" and "Contributing" sections in the README.
+- Changed: the start screen became a "sheet" with a gradient from the demo picture (blue → lilac) and a folded top-right corner; the app icon sits to the left of the name.
+- Changed: Ctrl+W on the last tab no longer closes the app (the start screen remains); quit with Ctrl+Q (it asks about unsaved changes).
+- Added: F1 (or `?`) shows a window with all hotkeys over the document.
+- Changed: the client build is split into chunks: heavy parts (diagrams, languages) are loaded only when needed.
+- Installer: `mdview_0.3.0_amd64.deb`.
+- Docs: all documentation is in English; the README was rewritten with screenshots and installation from source for any Linux; release notes in `docs/release-0.3.0.md`.
+- Fixed: in the editor the whole text of a list was coloured like a keyword; now only the rule of a horizontal line is.
 
-## 0.2.0 — версия 2 (2026-11-02): редактор
-- Редактор CodeMirror 6 с живым предпросмотром (Ctrl+E), сохранение (Ctrl+S), защита от потери несохранённого.
-- Вкладки и одно окно на пользователя (`mdview файл.md` добавляет вкладку к открытому окну).
-- Темы файлами (`~/.config/mdview/themes/*.css`, Ctrl+Shift+T) и панель оглавления (Ctrl+Shift+O).
-- Стартовый экран с кнопкой открытия и списком всех команд.
-- Новый файл (Ctrl+N) и «Сохранить как» (Ctrl+Shift+S).
-- Редактор: лёгкая подсветка строки с курсором, аккуратная панель поиска и замены.
-- Граница между редактором и предпросмотром перетаскивается, Ctrl+Shift+E оставляет один редактор.
-- Ctrl+Shift+S при чтении сохраняет копию файла (в том числе только для чтения).
-- Исправлено: наблюдатель файлов зацикливал перезагрузку документа.
-- Установщик: `mdview_0.2.0_amd64.deb`.
+## 0.2.0 — version 2 (2026-11-02): editor
+- Added: CodeMirror 6 editor with live preview (Ctrl+E), saving (Ctrl+S), protection against losing unsaved changes.
+- Added: tabs and a single window per user (`mdview file.md` adds a tab to the open window).
+- Added: themes as files (`~/.config/mdview/themes/*.css`, Ctrl+Shift+T) and a contents panel (Ctrl+Shift+O).
+- Added: start screen with an open button and a list of all commands.
+- Added: new file (Ctrl+N) and "Save as" (Ctrl+Shift+S).
+- Added: editor: light highlighting of the line with the cursor, a tidier search and replace bar.
+- Added: the divider between the editor and the preview is draggable; Ctrl+Shift+E leaves only the editor.
+- Added: Ctrl+Shift+S while reading saves a copy of the file (including read-only files).
+- Fixed: the file watcher kept reloading the document in a loop.
+- Installer: `mdview_0.2.0_amd64.deb`.
 
-## 0.1.0 — версия 1 (2026-10-25 … 2026-11-01): просмотрщик
-- Markdown, формулы KaTeX, подсветка кода, таблицы, картинки, MDX, поиск, лента заголовков, ссылки и история,
-  живая перезагрузка, настольное окно Tauri 2 и пакет `.deb`.
+## 0.1.0 — version 1 (2026-10-25 … 2026-11-01): viewer
+- Markdown, KaTeX formulas, code highlighting, tables, images, MDX, search, heading strip, links and history,
+  live reload, a Tauri 2 desktop window and a `.deb` package.
