@@ -62,7 +62,8 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.url, color: "var(--tok-meta)" },
   { tag: tags.monospace, color: "var(--tok-string)" },
   { tag: tags.quote, color: "var(--fg-muted)" },
-  { tag: [tags.list, tags.contentSeparator], color: "var(--tok-keyword)" },
+  // Only the rule of a horizontal line is coloured: `tags.list` covers the whole text of a list, not its marker.
+  { tag: tags.contentSeparator, color: "var(--tok-keyword)" },
   { tag: [tags.processingInstruction, tags.meta, tags.labelName], color: "var(--fg-muted)" },
   { tag: tags.comment, color: "var(--tok-comment)" },
   // Code inside fences (code-languages.ts); the same palette as the preview's highlighter.
